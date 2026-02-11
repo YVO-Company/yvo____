@@ -1,0 +1,19 @@
+[
+  {
+    "email": "admin@example.com",
+    "memberships": [],
+    "id": "697355af8c961416ef42eb42"
+  },
+  {
+    "email": "user@company.com",
+    "memberships": [
+      {
+        "companyId": "69873a5a1d893c740340fcba",
+        "role": "OWNER",
+        "_id": "69873a5b1d893c740340fcbe",
+        "joinedAt": "2026-02-07T13:12:59.013Z"
+      }
+    ],
+    "id": "69873a5b1d893c740340fcbd"
+  }
+]
