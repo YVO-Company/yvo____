@@ -50,7 +50,7 @@ export default function DashboardLayout() {
     // SUPER ADMIN SIDEBAR (Updated with Premium Icons)
     if (user.isSuperAdmin) {
         return (
-            <div className="flex min-h-screen bg-slate-50 font-inter text-slate-900">
+            <div className="flex min-h-screen bg-slate-50 text-slate-900">
                 <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-slate-200">
                     <div className="flex h-16 items-center px-6 border-b border-slate-100">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm shadow mr-3">
@@ -114,7 +114,7 @@ export default function DashboardLayout() {
 
     // COMPANY ADMIN LAYOUT (Clean style)
     return (
-        <div className="flex min-h-screen bg-slate-50 font-inter text-slate-900">
+        <div className="flex min-h-screen bg-slate-50 text-slate-900">
             <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-slate-200 overflow-y-auto">
                 <div className="flex h-16 items-center px-6 border-b border-slate-100">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-sm shadow mr-3">
