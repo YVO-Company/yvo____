@@ -53,10 +53,8 @@ export default function DashboardLayout() {
             <div className="flex min-h-screen bg-slate-50 text-slate-900">
                 <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-slate-200">
                     <div className="flex h-16 items-center px-6 border-b border-slate-100">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm shadow mr-3">
-                            SA
-                        </div>
-                        <span className="text-lg font-bold text-slate-800 tracking-tight">SaaS Admin Pro</span>
+                        <img src="/admin-logo.svg" alt="Admin" className="h-8 w-8 mr-3 object-contain" />
+                        <span className="text-lg font-bold text-slate-800 tracking-tight">Admin</span>
                     </div>
 
                     <nav className="mt-6 px-3 space-y-1">
