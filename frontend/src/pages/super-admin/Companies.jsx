@@ -21,6 +21,7 @@ export default function Companies() {
     const [tempFlags, setTempFlags] = useState({});
     const [selectedPlanId, setSelectedPlanId] = useState('');
     const [subscriptionEndsAt, setSubscriptionEndsAt] = useState('');
+    const [status, setStatus] = useState('active');
 
     useEffect(() => {
         fetchCompanies();
@@ -66,6 +67,7 @@ export default function Companies() {
             } else {
                 setSubscriptionEndsAt('');
             }
+            setStatus(company.subscriptionStatus || 'active');
         }
     };
 
@@ -88,7 +90,7 @@ export default function Companies() {
     const handleSaveStatus = async () => {
         try {
             await api.patch(`/sa/companies/${selectedCompany._id}/status`, {
-                status: 'active',
+                status: status,
                 subscriptionEndsAt: subscriptionEndsAt
             });
             toast.success("Subscription updated!");
@@ -394,6 +396,19 @@ export default function Companies() {
                                         </h4>
                                         <div className="space-y-3">
                                             <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                                                <select
+                                                    value={status}
+                                                    onChange={(e) => setStatus(e.target.value)}
+                                                    className="w-full rounded-lg border-slate-300 focus:ring-orange-500 focus:border-orange-500 mb-3"
+                                                >
+                                                    <option value="active">Active</option>
+                                                    <option value="trial">Trial</option>
+                                                    <option value="past_due">Past Due</option>
+                                                    <option value="suspended">Suspended</option>
+                                                    <option value="cancelled">Cancelled</option>
+                                                </select>
+
                                                 <label className="block text-sm font-medium text-slate-700 mb-1">Subscription Ends At</label>
                                                 <input
                                                     type="date"
@@ -406,7 +421,7 @@ export default function Companies() {
                                                 onClick={handleSaveStatus}
                                                 className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors"
                                             >
-                                                Extend / Update Date
+                                                Update Status & Date
                                             </button>
                                         </div>
                                     </div>

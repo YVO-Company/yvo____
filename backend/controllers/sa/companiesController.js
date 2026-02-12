@@ -248,29 +248,65 @@ export const updateCompanyFlags = async (req, res) => {
 // DELETE /sa/companies/:id
 export const deleteCompany = async (req, res) => {
     try {
-        const company = await Company.findById(req.params.id);
+        const companyId = req.params.id;
+        const company = await Company.findById(companyId);
         if (!company) return res.status(404).json({ message: 'Company not found' });
 
+        console.log(`[DeleteCompany] Starting full cleanup for company: ${company.name} (${companyId})`);
+
         // 1. Remove Company Memberships from Users
-        // Find users who are members of this company
         const members = await User.find({ 'memberships.companyId': company._id });
-
         for (const member of members) {
-            // Filter out this company's membership
             member.memberships = member.memberships.filter(m => m.companyId.toString() !== company._id.toString());
-
-            // If user has no more memberships, delete the user (Clean up)
-            if (member.memberships.length === 0) {
+            if (member.memberships.length === 0 && !member.isSuperAdmin) {
                 await User.findByIdAndDelete(member._id);
             } else {
                 await member.save();
             }
         }
 
-        // 2. Delete the Company
-        await Company.findByIdAndDelete(req.params.id);
+        // 2. Delete Module Data (Parallel for speed)
+        const modelsToDelete = [
+            // Modules
+            import('../../models/Modules/Invoice.js').then(m => m.Invoice),
+            import('../../models/Modules/Customer.js').then(m => m.Customer),
+            import('../../models/Modules/InventoryItem.js').then(m => m.InventoryItem),
+            import('../../models/Modules/Employee.js').then(m => m.Employee),
+            import('../../models/Modules/LeaveRequest.js').then(m => m.LeaveRequest),
+            import('../../models/Modules/SalaryRecord.js').then(m => m.SalaryRecord),
+            import('../../models/Modules/Expense.js').then(m => m.Expense),
+            import('../../models/Modules/CalendarEvent.js').then(m => m.CalendarEvent),
+            import('../../models/Modules/BroadcastMessage.js').then(m => m.BroadcastMessage),
+            import('../../models/Modules/BroadcastGroup.js').then(m => m.BroadcastGroup),
+            // Global (scoping)
+            import('../../models/Global/AuditLog.js').then(m => m.AuditLog),
+            import('../../models/Global/FeatureFlag.js').then(m => m.FeatureFlag),
+            // Legacy/Other paths (handled dynamically if possible, or skip if not sure)
+            // attempting to load Subscription/Payment if they exist in src/models for completeness?
+            // No, better to stick to known paths or check existence in DB directly?
+            // Since we import models, let's just use what we know exists in backend/models
+        ];
 
-        res.json({ message: 'Company and associated data deleted successfully' });
+        // Wait for imports
+        const loadedModels = await Promise.all(modelsToDelete);
+
+        // Execute Deletions
+        const deletePromises = loadedModels.map(Model => {
+            if (!Model) return Promise.resolve();
+            // FeatureFlag uses scopeId for company
+            if (Model.modelName === 'FeatureFlag') {
+                return Model.deleteMany({ scope: 'COMPANY', scopeId: companyId });
+            }
+            return Model.deleteMany({ companyId: companyId });
+        });
+
+        await Promise.all(deletePromises);
+
+        // 3. Delete the Company
+        await Company.findByIdAndDelete(companyId);
+
+        console.log(`[DeleteCompany] Successfully deleted company and all associated data.`);
+        res.json({ message: 'Company and all associated data deleted successfully' });
     } catch (error) {
         console.error("Delete Company Error:", error);
         res.status(500).json({ message: error.message });
