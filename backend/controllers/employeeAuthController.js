@@ -7,6 +7,27 @@ export const loginEmployee = async (req, res) => {
     try {
         const { phone, password } = req.body;
 
+        if (process.env.SKIP_DB === 'true') {
+            // Development bypass
+            if (phone === '+919876543210' && password === 'password') {
+                return res.json({
+                    token: 'mock_employee_token',
+                    user: {
+                        id: 'mock_employee_id',
+                        firstName: 'Demo',
+                        lastName: 'Employee',
+                        email: 'employee@demo.com',
+                        phone: '+919876543210',
+                        position: 'Developer',
+                        department: 'Engineering',
+                        company: { _id: 'mock_company_id', name: 'Demo Company' },
+                        role: 'employee'
+                    }
+                });
+            }
+            return res.status(401).json({ message: 'Invalid credentials (Dev Mode: use +919876543210 / password)' });
+        }
+
         // Find employee by phone
         const employee = await Employee.findOne({ phone }).populate('companyId', 'name logo');
         if (!employee) {

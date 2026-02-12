@@ -15,15 +15,24 @@ export const registerCompany = async (req, res) => {
     try {
         const { companyName, ownerName, email, password } = req.body;
 
+        if (process.env.SKIP_DB === 'true') {
+            return res.status(201).json({
+                _id: 'mock_user_id',
+                fullName: ownerName || 'Mock Owner',
+                email: email,
+                token: generateToken('mock_user_id'),
+                companyId: 'mock_company_id'
+            });
+        }
+
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        // 1. Get Default Plan (Basic)
+        // ... rest of the existing registerCompany logic
         let plan = await Plan.findOne({ code: 'BASIC' });
         if (!plan) {
-            // Create fallback plan if not seeding
             plan = await Plan.create({
                 code: 'BASIC',
                 name: 'Basic',
@@ -31,10 +40,7 @@ export const registerCompany = async (req, res) => {
             });
         }
 
-        // 2. Create Company
-        // Generate a random API key for the company (simple implementation)
         const apiKey = `sk_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-
         const company = await Company.create({
             name: companyName,
             planId: plan._id,
@@ -43,7 +49,6 @@ export const registerCompany = async (req, res) => {
             apiKey
         });
 
-        // 3. Create Owner
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
@@ -75,6 +80,26 @@ export const registerCompany = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        if (process.env.SKIP_DB === 'true') {
+            // Development bypass
+            if (email === 'admin@yvo.com' && password === 'admin') {
+                return res.json({
+                    _id: 'mock_admin_id',
+                    fullName: 'Demo Admin',
+                    email: 'admin@yvo.com',
+                    isSuperAdmin: false,
+                    memberships: [{
+                        companyId: { _id: 'mock_company_id', name: 'Demo Company' },
+                        role: 'OWNER'
+                    }],
+                    currentCompanyId: 'mock_company_id',
+                    token: generateToken('mock_admin_id'),
+                });
+            }
+            return res.status(401).json({ message: 'Invalid credentials (Dev Mode: use admin@yvo.com / admin)' });
+        }
+
         const user = await User.findOne({ email }).populate('memberships.companyId');
 
         if (user && (await bcrypt.compare(password, user.passwordHash))) {

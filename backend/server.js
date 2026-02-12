@@ -2,6 +2,10 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import dns from 'dns';
+
+// Fix for MongoDB Atlas ECONNREFUSED issues on some networks
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 import saRoutes from './routes/saRoutes.js';
 import companyRoutes from './routes/companyRoutes.js';
@@ -27,10 +31,18 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Disable buffering to prevent timeouts when DB is not connected
+mongoose.set('bufferCommands', false);
+
 // Database Connection
-mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/yvo')
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB Connection Error:', err));
+if (process.env.SKIP_DB === 'true') {
+  console.log(`Skipping MongoDB connection (SKIP_DB=${process.env.SKIP_DB})`);
+} else {
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  mongoose.connect(uri)
+    .then(() => console.log('MongoDB Connected'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+}
 
 // Routes
 app.use('/api/sa', saRoutes);
