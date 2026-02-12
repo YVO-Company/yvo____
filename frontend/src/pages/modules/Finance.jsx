@@ -1,52 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Download, Filter, Calendar as CalIcon, TrendingUp, DollarSign, Receipt, CheckCircle, Clock } from 'lucide-react';
 import api from '../../services/api';
+import html2pdf from 'html2pdf.js';
 
 export default function Finance() {
+    const [allExpenses, setAllExpenses] = useState([]);
+    const [allInvoices, setAllInvoices] = useState([]);
+
+    // Filtered Data for View
     const [expenses, setExpenses] = useState([]);
     const [stats, setStats] = useState({ revenue: 0, outstanding: 0, expenses: 0, profit: 0 });
+
     const [loading, setLoading] = useState(true);
     const [showExpenseModal, setShowExpenseModal] = useState(false);
     const [newExpense, setNewExpense] = useState({ category: '', amount: '', description: '', paymentMethod: 'Card' });
 
     // New Filter State
     const [filters, setFilters] = useState({ dateRange: 'this_month', category: 'all' });
+    const [companyConfig, setCompanyConfig] = useState(null);
 
     useEffect(() => {
         fetchData();
-    }, [filters]);
+        fetchConfig();
+    }, []);
+
+    useEffect(() => {
+        applyFilters();
+    }, [filters, allExpenses, allInvoices]);
+
+    const fetchConfig = async () => {
+        try {
+            const res = await api.get('/company/config');
+            setCompanyConfig(res.data.company);
+        } catch (e) {
+            console.error("Failed to load company config");
+        }
+    };
 
     const fetchData = async () => {
         try {
+            setLoading(true);
             const companyId = localStorage.getItem('companyId');
-            // Fetch invoices just for stats calculation
             const [invoiceRes, expenseRes] = await Promise.all([
                 api.get('/invoices', { params: { companyId } }),
                 api.get('/expenses', { params: { companyId } })
             ]);
 
-            const invoiceData = invoiceRes.data;
-            const expenseData = expenseRes.data;
-            setExpenses(expenseData);
-
-            // Calculate Stats (Mocking filtered data logic here)
-            const revenue = invoiceData
-                .filter(inv => inv.status === 'PAID')
-                .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-
-            const outstanding = invoiceData
-                .filter(inv => inv.status === 'SENT' || inv.status === 'OVERDUE')
-                .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-
-            const totalExpenses = expenseData.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-
-            setStats({
-                revenue,
-                outstanding,
-                expenses: totalExpenses,
-                profit: revenue - totalExpenses
-            });
-
+            setAllInvoices(invoiceRes.data);
+            setAllExpenses(expenseRes.data);
         } catch (err) {
             console.error("Failed to load finance data", err);
         } finally {
@@ -54,21 +55,145 @@ export default function Finance() {
         }
     };
 
+    const applyFilters = () => {
+        const now = new Date();
+        const { dateRange, category } = filters;
+
+        // Helper to check date range
+        const isInRange = (dateString) => {
+            const d = new Date(dateString);
+            if (dateRange === 'this_month') {
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            }
+            if (dateRange === 'last_month') {
+                const lastMonth = new Date();
+                lastMonth.setMonth(now.getMonth() - 1);
+                return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+            }
+            if (dateRange === 'this_quarter') {
+                const q = Math.floor((now.getMonth() + 3) / 3);
+                const dq = Math.floor((d.getMonth() + 3) / 3);
+                return q === dq && d.getFullYear() === now.getFullYear();
+            }
+            if (dateRange === 'this_year') {
+                return d.getFullYear() === now.getFullYear();
+            }
+            return true; // All
+        };
+
+        // Filter Invoices
+        const filteredInvoices = allInvoices.filter(inv => isInRange(inv.date || inv.createdAt));
+
+        // Filter Expenses
+        let filteredExpenses = allExpenses.filter(exp => isInRange(exp.date));
+
+        if (category !== 'all') {
+            filteredExpenses = filteredExpenses.filter(exp => exp.category?.toLowerCase() === category.toLowerCase());
+        }
+
+        setExpenses(filteredExpenses);
+
+        // Calculate Stats
+        const revenue = filteredInvoices
+            .filter(inv => inv.status === 'PAID')
+            .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+
+        const outstanding = filteredInvoices
+            .filter(inv => inv.status === 'SENT' || inv.status === 'OVERDUE')
+            .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+
+        const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+
+        setStats({
+            revenue,
+            outstanding,
+            expenses: totalExpenses,
+            profit: revenue - totalExpenses
+        });
+    };
+
     const handleCreateExpense = async (e) => {
         e.preventDefault();
         try {
             const companyId = localStorage.getItem('companyId');
-            await api.post('/expenses', { ...newExpense, companyId });
+            const res = await api.post('/expenses', { ...newExpense, companyId });
+            setAllExpenses(prev => [res.data, ...prev]); // Optimistic update
             setShowExpenseModal(false);
             setNewExpense({ category: '', amount: '', description: '', paymentMethod: 'Card' });
-            fetchData();
         } catch (err) {
             alert('Failed to create expense');
         }
     };
 
     const handleGenerateReport = () => {
-        alert(`Generating ${filters.dateRange} report... (Feature coming soon)`);
+        const element = document.createElement('div');
+        element.style.width = '210mm';
+        element.style.padding = '15mm';
+        element.style.background = 'white';
+        element.style.color = '#1e293b';
+        element.style.fontFamily = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+        const dateStr = new Date().toLocaleDateString();
+
+        // Generate Rows
+        const expenseRows = expenses.map(e => `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px;">${e.category}</td>
+                <td style="padding: 10px;">${new Date(e.date).toLocaleDateString()}</td>
+                <td style="padding: 10px;">${e.description || '-'}</td>
+                <td style="padding: 10px; text-align: right; color: #ef4444;">-₹${e.amount}</td>
+            </tr>
+        `).join('');
+
+        element.innerHTML = `
+            <div>
+                <!-- Header -->
+                <div style="text-align: center; margin-bottom: 40px;">
+                    ${companyConfig?.logo ? `<img src="${companyConfig.logo}" style="height: 60px; margin-bottom: 10px;" />` : ''}
+                    <h1 style="margin: 0; font-size: 24px; color: #0f172a;">${companyConfig?.name || 'Company Name'}</h1>
+                    <p style="margin: 5px 0; color: #64748b;">Financial Report</p>
+                    <p style="margin: 0; font-size: 14px; color: #94a3b8;">${filters.dateRange.replace('_', ' ').toUpperCase()} • Generated on ${dateStr}</p>
+                </div>
+
+                <!-- Summary Cards -->
+                <div style="display: flex; gap: 20px; margin-bottom: 40px;">
+                    <div style="flex: 1; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold;">Revenue</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #16a34a;">+${formatCurrency(stats.revenue)}</div>
+                    </div>
+                    <div style="flex: 1; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold;">Expenses</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #ef4444;">-${formatCurrency(stats.expenses)}</div>
+                    </div>
+                    <div style="flex: 1; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold;">Net Profit</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #2563eb;">${formatCurrency(stats.profit)}</div>
+                    </div>
+                </div>
+
+                <!-- Expenses Table -->
+                <h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Expense Breakdown</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f1f5f9; text-align: left;">
+                            <th style="padding: 10px;">Category</th>
+                            <th style="padding: 10px;">Date</th>
+                            <th style="padding: 10px;">Description</th>
+                            <th style="padding: 10px; text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${expenseRows || '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #94a3b8;">No expenses found for this period.</td></tr>'}
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8;">
+                    This is a system generated report.
+                </div>
+            </div>
+        `;
+
+        html2pdf().from(element).save(`Finance_Report_${filters.dateRange}.pdf`);
     };
 
     const formatDate = (dateString) => {
@@ -120,6 +245,7 @@ export default function Finance() {
                     <option value="last_month">Last Month</option>
                     <option value="this_quarter">This Quarter</option>
                     <option value="this_year">This Year</option>
+                    <option value="all">All Time</option>
                 </select>
                 <select
                     className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-blue-500"
@@ -130,6 +256,8 @@ export default function Finance() {
                     <option value="operations">Operations</option>
                     <option value="marketing">Marketing</option>
                     <option value="payroll">Payroll</option>
+                    <option value="software">Software</option>
+                    <option value="office">Office</option>
                 </select>
             </div>
 
@@ -139,25 +267,25 @@ export default function Finance() {
                     title="Total Revenue"
                     value={formatCurrency(stats.revenue)}
                     icon={<TrendingUp size={24} className="text-green-600" />}
-                    trend="+12% vs last month"
+                    trend="Based on paid invoices"
                 />
                 <StatCard
                     title="Total Expenses"
                     value={formatCurrency(stats.expenses)}
                     icon={<Receipt size={24} className="text-red-600" />}
-                    trend="+5% vs last month"
+                    trend="Based on recorded expenses"
                 />
                 <StatCard
                     title="Net Profit"
                     value={formatCurrency(stats.profit)}
                     icon={<DollarSign size={24} className="text-blue-600" />}
-                    trend="+8% vs last month"
+                    trend="Revenue - Expenses"
                 />
                 <StatCard
                     title="Outstanding"
                     value={formatCurrency(stats.outstanding)}
                     icon={<Clock size={24} className="text-amber-600" />}
-                    trend="3 invoices pending"
+                    trend="Pending invoices"
                 />
             </div>
 
@@ -176,7 +304,9 @@ export default function Finance() {
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                     <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                         <h3 className="text-lg font-semibold text-slate-800">Recent Expenses</h3>
-                        <button className="text-sm text-indigo-600 hover:underline">View All</button>
+                        <span className="text-xs text-slate-500">
+                            {expenses.length} records
+                        </span>
                     </div>
                     <div className="flex-grow overflow-y-auto max-h-[400px]">
                         {expenses.length > 0 ? (
@@ -199,7 +329,7 @@ export default function Finance() {
                                 </tbody>
                             </table>
                         ) : (
-                            <div className="p-10 text-center text-slate-500">No expenses recorded yet.</div>
+                            <div className="p-10 text-center text-slate-500">No expenses found for this selection.</div>
                         )}
                     </div>
                 </div>
