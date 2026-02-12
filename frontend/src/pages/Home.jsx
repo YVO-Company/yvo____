@@ -1,9 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Calendar, CheckCircle, CreditCard, FileText, Package, Users, Video } from 'lucide-react';
+import { BarChart3, Calendar, CheckCircle, CreditCard, FileText, Package, Users, Video, Database } from 'lucide-react';
 
 export default function Home() {
   const features = [
+    {
+      title: 'Digital Finance Ledger',
+      description: 'Manage your accounts with an Excel-style digital book designed to store and track all your financial data.',
+      icon: <Database className="text-brand" />,
+    },
     {
       title: 'Finance Management',
       description: 'Track income, expenses, and generate financial reports effortlessly.',
@@ -69,44 +74,46 @@ export default function Home() {
   ];
 
   return (
-    <div className="pt-24">
-      <section className="max-w-6xl mx-auto px-6 py-16 grid lg:grid-cols-[1.1fr_1fr] gap-12 items-center">
-        <div className="space-y-6">
-          <div className="text-sm font-semibold text-brand bg-blue-50 w-fit px-3 py-1 rounded-full">Home</div>
-          <h1 className="text-4xl md:text-5xl font-black leading-tight">
-            Streamline Your <br /> Business with YVO
+    <div className="pt-24 overflow-x-hidden">
+      {/* Redesigned Hero Section per Reference Image */}
+      <section className="max-w-6xl mx-auto px-6 py-20 text-center relative">
+        <div className="relative z-10 space-y-10">
+          <h1 className="text-5xl md:text-8xl font-normal tracking-tight text-slate-900 font-hand leading-tight drop-shadow-sm">
+            All your business on <span className="highlight-brush inline-block px-4">one platform.</span>
           </h1>
-          <p className="text-slate-500">
-            YVO empowers you to manage finances, inventory, and teams effortlessly. Boost efficiency and grow with our all-in-one
-            SaaS solution.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              to="/pricing"
-              className="bg-slate-900 text-white px-5 py-2 rounded-md text-sm font-semibold hover:bg-slate-800 transition"
-            >
-              View Demo
-            </Link>
+
+          <div className="relative inline-block float-slow">
+            <h2 className="text-3xl md:text-5xl font-hand text-slate-700 italic opacity-90">
+              Simple, efficient, yet <span className="underline-brush">affordable!</span>
+            </h2>
+          </div>
+
+          <div className="flex justify-center pt-6">
             <Link
               to="/signup"
-              className="bg-brand text-white px-5 py-2 rounded-md text-sm font-semibold shadow hover:bg-blue-700 transition"
+              className="btn-brush text-2xl"
             >
-              Create Account
-            </Link>
-            <Link
-              to="/download"
-              className="border border-slate-200 text-slate-600 px-5 py-2 rounded-md text-sm font-semibold hover:border-brand hover:text-brand transition"
-            >
-              Download App
+              Start now
             </Link>
           </div>
         </div>
-        <div className="bg-slate-100 rounded-2xl p-6 shadow-sm">
-          <img
-            alt="Dashboard preview"
-            className="w-full rounded-xl"
-            src="https://placehold.co/640x420/png?text=Dashboard+Preview"
-          />
+
+        {/* Floating Decorative Elements */}
+        <div className="absolute top-20 left-10 w-24 h-24 bg-blue-400/10 rounded-full blur-3xl -z-10"></div>
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl -z-10"></div>
+      </section>
+
+      {/* Main Feature Preview */}
+      <section className="max-w-6xl mx-auto px-6 py-10">
+        <div className="bg-slate-900 rounded-[3rem] p-4 md:p-8 shadow-2xl shadow-slate-900/30 overflow-hidden group">
+          <div className="bg-white rounded-[2rem] overflow-hidden aspect-video relative">
+            <img
+              alt="Dashboard preview"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+          </div>
         </div>
       </section>
 
@@ -138,7 +145,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-6 py-16">
+      <section id="features" className="max-w-6xl mx-auto px-6 py-16">
         <h2 className="text-center text-3xl font-black mb-3">Powerful Features Designed for Your Success</h2>
         <p className="text-center text-slate-500 max-w-2xl mx-auto">
           Discover how YVO's comprehensive modules can simplify your daily operations and boost productivity.
