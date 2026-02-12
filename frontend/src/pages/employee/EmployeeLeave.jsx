@@ -145,7 +145,7 @@ export default function EmployeeLeave() {
                                 <div className="flex items-center gap-3 mb-1">
                                     <span className="font-semibold text-slate-900">{leave.type}</span>
                                     <span className={`text-xs px-2 py-1 rounded-full font-medium
-                                        ${leave.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                                        ${leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' :
                                             leave.status === 'Rejected' ? 'bg-red-100 text-red-700' :
                                                 'bg-amber-100 text-amber-700'}`}>
                                         {leave.status}

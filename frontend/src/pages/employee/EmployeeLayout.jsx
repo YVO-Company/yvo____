@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
-    LayoutDashboard, DollarSign, Calendar, MessageSquare, LogOut, FileText, Menu, X
+    LayoutDashboard, DollarSign, Calendar, MessageSquare, LogOut, FileText, Menu, X, Users
 } from 'lucide-react';
 
 export default function EmployeeLayout() {
@@ -43,11 +43,11 @@ export default function EmployeeLayout() {
             {/* SIDEBAR */}
             <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
                 <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
-                    <div className="flex items-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-sm shadow mr-3">
-                            EMP
-                        </div>
-                        <span className="text-lg font-bold text-slate-800 tracking-tight">Portal</span>
+                    <div className="flex items-center gap-2">
+                        <Users className="text-blue-600" size={26} strokeWidth={2.5} />
+                        <span className="text-xl font-bold text-blue-600 uppercase">
+                            Employee
+                        </span>
                     </div>
                     <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-slate-600">
                         <X size={24} />
@@ -120,8 +120,8 @@ export default function EmployeeLayout() {
                             {location.pathname === '/employee-dashboard' ? 'Overview' : location.pathname.split('/').pop().charAt(0).toUpperCase() + location.pathname.split('/').pop().slice(1)}
                         </h2>
                     </div>
-                    <div className="text-sm text-slate-500 hidden sm:block">
-                        {user.companyId?.name || 'Company Name'}
+                    <div className="text-sm font-bold text-blue-700 hidden sm:block bg-blue-50/80 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm backdrop-blur-sm">
+                        {user.company?.name || user.companyId?.name || 'Your Company'}
                     </div>
                 </header>
 
@@ -138,11 +138,11 @@ const SidebarItem = ({ icon, label, href, active }) => (
         to={href}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 
       ${active
-                ? 'bg-emerald-50 text-emerald-700 shadow-sm'
+                ? 'bg-blue-50 text-blue-700 shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
     >
-        <span className={active ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}>
+        <span className={active ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}>
             {icon}
         </span>
         {label}

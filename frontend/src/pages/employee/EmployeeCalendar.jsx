@@ -83,7 +83,7 @@ export default function EmployeeCalendar() {
                                 onClick={(e) => { e.stopPropagation(); setSelectedEvent(event); }}
                                 className={`text-xs p-1.5 rounded border border-l-2 mb-1 cursor-pointer truncate hover:opacity-80 transition-opacity
                                     ${event.type === 'Meeting' ? 'bg-purple-50 border-purple-200 border-l-purple-500 text-purple-700' :
-                                        event.type === 'Holiday' ? 'bg-green-50 border-green-200 border-l-green-500 text-green-700' :
+                                        event.type === 'Holiday' ? 'bg-sky-50 border-sky-200 border-l-sky-500 text-sky-700' :
                                             'bg-blue-50 border-blue-200 border-l-blue-500 text-blue-700'}`}
                                 title="Click to view details"
                             >
@@ -189,7 +189,7 @@ export default function EmployeeCalendar() {
                                 <h2 className="text-xl font-bold text-slate-900 mb-1">{selectedEvent.title}</h2>
                                 <span className={`text-xs font-semibold px-2 py-1 rounded-full 
                                     ${selectedEvent.type === 'Meeting' ? 'bg-purple-100 text-purple-700' :
-                                        selectedEvent.type === 'Holiday' ? 'bg-green-100 text-green-700' :
+                                        selectedEvent.type === 'Holiday' ? 'bg-sky-100 text-sky-700' :
                                             'bg-blue-100 text-blue-700'}`}>
                                     {selectedEvent.type}
                                 </span>

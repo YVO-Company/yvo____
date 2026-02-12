@@ -1,22 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { DollarSign, Clock, Calendar, MessageSquare } from 'lucide-react';
+import { DollarSign, Clock, Calendar, MessageSquare, X } from 'lucide-react';
 
 const StatCard = ({ icon, label, value, subtext }) => (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex items-center gap-4">
-        <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] flex items-center gap-4 hover:translate-y-[-2px] transition-all duration-300">
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100/80">
             {icon}
         </div>
         <div>
-            <p className="text-sm font-medium text-slate-500">{label}</p>
-            <p className="text-xl font-bold text-slate-900">{value}</p>
-            <p className="text-xs text-slate-400">{subtext}</p>
+            <p className="text-[13px] font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+            <p className="text-2xl font-black text-slate-900">{value}</p>
+            <p className="text-xs font-medium text-slate-400 mt-0.5">{subtext}</p>
         </div>
     </div>
-); import { X } from 'lucide-react';
+);
 
 export default function EmployeeHome() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [stats, setStats] = useState({
         pendingLeaves: 0,
@@ -35,16 +37,23 @@ export default function EmployeeHome() {
 
     const fetchStats = async () => {
         try {
-            const leavesRes = await api.get('/employee/dashboard/leaves');
-            const calendarRes = await api.get('/employee/dashboard/calendar');
-            const broadcastsRes = await api.get('/employee/dashboard/broadcasts');
-            const salaryRes = await api.get('/employee/dashboard/salary');
+            const [leavesRes, calendarRes, broadcastsRes, salaryRes] = await Promise.all([
+                api.get('/employee/dashboard/leaves'),
+                api.get('/employee/dashboard/calendar'),
+                api.get('/employee/dashboard/broadcasts'),
+                api.get('/employee/dashboard/salary')
+            ]);
+
+            const leavesData = Array.isArray(leavesRes.data) ? leavesRes.data : [];
+            const calendarData = Array.isArray(calendarRes.data) ? calendarRes.data : [];
+            const broadcastsData = Array.isArray(broadcastsRes.data) ? broadcastsRes.data : [];
+            const salaryData = Array.isArray(salaryRes.data) ? salaryRes.data : [];
 
             setStats({
-                pendingLeaves: leavesRes.data.filter(l => l.status === 'Pending').length,
-                upcomingEvents: calendarRes.data.length,
-                unreadBroadcasts: broadcastsRes.data.length,
-                lastSalary: salaryRes.data.length > 0 ? salaryRes.data[0] : null
+                pendingLeaves: leavesData.filter(l => l && l.status === 'Pending').length,
+                upcomingEvents: calendarData.length,
+                unreadBroadcasts: broadcastsData.length,
+                lastSalary: salaryData.length > 0 ? salaryData[0] : null
             });
         } catch (error) {
             console.error("Error loading stats", error);
@@ -75,11 +84,14 @@ export default function EmployeeHome() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-slate-800">Welcome Back!</h1>
+            <div className="flex flex-col gap-1">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back to {user.company?.name || user.companyId?.name || "the Portal"}!</h1>
+                <p className="text-slate-500 font-medium">You are logged into <span className="text-blue-600 font-bold">{user.company?.name || user.companyId?.name || "your company portal"}</span></p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    icon={<DollarSign className="text-emerald-600" />}
+                    icon={<DollarSign className="text-blue-600" />}
                     label="Last Salary"
                     value={stats.lastSalary ? `₹${stats.lastSalary.amount}` : 'N/A'}
                     subtext={stats.lastSalary ? stats.lastSalary.payPeriod : '-'}
@@ -105,21 +117,26 @@ export default function EmployeeHome() {
             </div>
 
             {/* Quick Actions */}
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h3>
-                <div className="flex gap-4">
-                    <button
-                        onClick={() => setShowLeaveModal(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                    >
-                        Apply for Leave
-                    </button>
-                    <button
-                        onClick={() => navigate('/employee-dashboard/calendar')}
-                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition"
-                    >
-                        View Calendar
-                    </button>
+            <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white to-blue-50/30 p-8 shadow-sm">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-800 mb-1">Quick Actions</h3>
+                        <p className="text-slate-500 text-sm font-medium">Manage your requests and schedule in one click</p>
+                    </div>
+                    <div className="flex gap-4 w-full sm:w-auto">
+                        <button
+                            onClick={() => setShowLeaveModal(true)}
+                            className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-bold"
+                        >
+                            Apply for Leave
+                        </button>
+                        <button
+                            onClick={() => navigate('/employee-dashboard/calendar')}
+                            className="flex-1 sm:flex-none px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition font-bold"
+                        >
+                            View Calendar
+                        </button>
+                    </div>
                 </div>
             </div>
 

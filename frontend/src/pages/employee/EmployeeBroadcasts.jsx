@@ -35,7 +35,7 @@ export default function EmployeeBroadcasts() {
                 ) : (
                     messages.map(msg => (
                         <div key={msg._id} className="flex gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <div className="h-10 w-10 flex-shrink-0 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                            <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                 <MessageSquare size={20} />
                             </div>
                             <div className="flex-1">

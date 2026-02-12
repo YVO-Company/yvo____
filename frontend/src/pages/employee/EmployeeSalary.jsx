@@ -53,7 +53,7 @@ export default function EmployeeSalary() {
                                     <td className="px-6 py-4 font-semibold text-emerald-600">₹{salary.amount.toLocaleString()}</td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                                            ${salary.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                                            ${salary.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
                                                 salary.status === 'Pending' ? 'bg-amber-100 text-amber-800' :
                                                     'bg-slate-100 text-slate-800'}`}>
                                             {salary.status}
