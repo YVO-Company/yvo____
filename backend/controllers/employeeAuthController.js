@@ -2,10 +2,15 @@ import { signToken } from '../src/utils/jwt.js';
 import bcrypt from 'bcryptjs';
 import { Employee } from '../models/Modules/Employee.js';
 import { Company } from '../models/Global/Company.js';
+import { Plan } from '../models/Global/Plan.js';
 
 export const loginEmployee = async (req, res) => {
     try {
-        const { phone, password } = req.body;
+        let { phone, password } = req.body;
+
+        // Normalize phone: remove all non-digit characters and take last 10 digits
+        const numericPhone = phone.replace(/[^\d]/g, '');
+        const normalizedPhone = numericPhone.length > 10 ? numericPhone.slice(-10) : numericPhone;
 
         if (process.env.SKIP_DB === 'true') {
             // Development bypass
@@ -29,7 +34,7 @@ export const loginEmployee = async (req, res) => {
         }
 
         // Find employee by phone
-        const employee = await Employee.findOne({ phone }).populate('companyId', 'name logo');
+        const employee = await Employee.findOne({ phone: normalizedPhone }).populate('companyId', 'name logo');
         if (!employee) {
             return res.status(401).json({ message: 'Invalid phone or password' });
         }
@@ -49,17 +54,16 @@ export const loginEmployee = async (req, res) => {
         }
 
         // Check if Company has Employee Module Enabled
-        const Company = (await import('../models/Global/Company.js')).Company;
-        const Plan = (await import('../models/Global/Plan.js')).Plan;
         const company = await Company.findById(employee.companyId._id).populate('planId');
 
         // Calculate functionality access
         const plan = await Plan.findById(company.planId._id || company.planId);
-        const planDefaults = plan.defaultFlags ? Object.fromEntries(plan.defaultFlags) : {};
-        const companyOverrides = company.featureFlags ? Object.fromEntries(company.featureFlags) : {};
+
+        // Handle Mongoose Maps/Objects correctly
+        const planDefaults = plan.defaultFlags instanceof Map ? Object.fromEntries(plan.defaultFlags) : (plan.defaultFlags || {});
+        const companyOverrides = company.featureFlags instanceof Map ? Object.fromEntries(company.featureFlags) : (company.featureFlags || {});
 
         // Merge logic: Plan Defaults -> Company Overrides
-        // We need to check 'module_employees'
         const effectiveFlags = { ...planDefaults, ...companyOverrides };
 
         if (!effectiveFlags['module_employees']) {
