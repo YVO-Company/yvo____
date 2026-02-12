@@ -104,7 +104,11 @@ export default function App() {
         </Route>
 
         {/* Employee Routes */}
-        <Route path="/employee-dashboard" element={<EmployeeLayout />}>
+        <Route path="/employee-dashboard" element={
+          <ErrorBoundary>
+            <EmployeeLayout />
+          </ErrorBoundary>
+        }>
           <Route index element={<EmployeeHome />} />
           <Route path="salary" element={<EmployeeSalary />} />
           <Route path="leaves" element={<EmployeeLeave />} />
