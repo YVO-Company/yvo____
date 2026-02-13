@@ -18,6 +18,7 @@ import DashboardHome from './pages/DashboardHome';
 import Companies from './pages/super-admin/Companies';
 import CreateCompany from './pages/super-admin/CreateCompany';
 import Plans from './pages/super-admin/Plans';
+import ManageClients from './pages/super-admin/ManageClients';
 import SyncControl from './pages/super-admin/SyncControl';
 import Finance from './pages/modules/Finance';
 import Invoicing from './pages/modules/Invoicing';
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="sync" element={<SyncControl />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="invoices/new" element={<InvoiceBuilder />} />
+          <Route path="clients" element={<React.Suspense fallback={<div>Loading...</div>}><ManageClients /></React.Suspense>} />
           <Route path="logs" element={<div className="p-10 text-center text-slate-500">Security Logs (Coming Soon)</div>} />
 
           {/* Admin Broadcasts */}
