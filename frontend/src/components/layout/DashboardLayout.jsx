@@ -60,6 +60,7 @@ export default function DashboardLayout() {
                     <nav className="mt-6 px-3 space-y-1">
                         <SidebarItem icon={<LayoutDashboard size={20} />} label="Dashboard Overview" href="/dashboard" active={location.pathname === '/dashboard'} />
                         <SidebarItem icon={<Building2 size={20} />} label="Companies" href="/dashboard/companies" active={location.pathname === '/dashboard/companies'} />
+                        <SidebarItem icon={<Users size={20} />} label="Manage Clients" href="/dashboard/clients" active={location.pathname === '/dashboard/clients'} />
                         <SidebarItem icon={<Ticket size={20} />} label="Plans & Feature Flags" href="/dashboard/plans" active={location.pathname === '/dashboard/plans'} />
 
                         <div className="pt-4 pb-2">

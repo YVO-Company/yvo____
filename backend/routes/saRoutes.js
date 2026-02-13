@@ -36,4 +36,9 @@ router.get('/analytics/dashboard', analyticsController.getDashboardAnalytics);
 router.get('/analytics/reports/expiry', analyticsController.getExpiryReport);
 router.get('/analytics/reports/companies', analyticsController.getCompanyReport);
 
+// Client Logos Management
+import * as clientController from '../controllers/sa/clientController.js';
+router.post('/clients', clientController.addClient);
+router.delete('/clients/:id', clientController.deleteClient);
+
 export default router;

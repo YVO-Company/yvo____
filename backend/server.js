@@ -8,6 +8,7 @@ import companyRoutes from './routes/companyRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import syncRoutes from './routes/syncRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import publicRoutes from './routes/publicRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
@@ -38,6 +39,7 @@ app.use('/api/company', companyRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/public', publicRoutes);
 
 // Module Routes
 app.use('/api/customers', customerRoutes);

@@ -15,6 +15,28 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
 
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        // Scrolling DOWN -> Hide
+        setIsVisible(false);
+      } else {
+        // Scrolling UP -> Show
+        setIsVisible(true);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
   useEffect(() => {
     const loadProfile = () => {
       const name = localStorage.getItem('userProfileName') || '';
@@ -51,7 +73,9 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 z-[100]">
+    <header
+      className={`fixed top-0 w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 z-[100] transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}
+    >
       <nav className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
