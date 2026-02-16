@@ -11,6 +11,7 @@ router.use(checkSubscriptionStatus);
 
 // Salary
 router.get('/salary-records', employeeController.getSalaryRecords);
+router.delete('/salary-records/:id', employeeController.deleteSalaryRecord); // [NEW] Link delete to controller
 router.post('/:id/pay', employeeController.paySalary);
 router.get('/:id/calculate-salary', employeeController.calculateSalary);
 
@@ -33,5 +34,6 @@ router.get('/:id', employeeController.getEmployeeById);
 router.post('/', employeeController.createEmployee);
 router.put('/:id', employeeController.updateEmployee);
 router.delete('/:id', employeeController.deleteEmployee);
+router.patch('/:id/restore', employeeController.restoreEmployee); // [NEW] Restore route
 
 export default router;

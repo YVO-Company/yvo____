@@ -16,6 +16,7 @@ const salaryRecordSchema = new mongoose.Schema({
         required: true // Final Amount Paid
     },
     baseSalary: { type: Number },
+    bonus: { type: Number, default: 0 },
     leavesTaken: { type: Number, default: 0 },
     freeLeaves: { type: Number, default: 0 },
     deductionAmount: { type: Number, default: 0 },

@@ -108,3 +108,45 @@ export const getEmployeeBroadcasts = async (req, res) => {
         res.status(500).json({ message: 'Error fetching broadcasts' });
     }
 };
+
+// --- Reports ---
+export const submitWorkReport = async (req, res) => {
+    try {
+        const { tasksCompleted, issues, nextDayPlan } = req.body;
+        const employeeId = req.user.id;
+        const companyId = req.user.companyId;
+
+        // Check if report already exists for today
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Dynamic import to avoid circular dependencies if any, or just standard import
+        const WorkReport = (await import('../models/Modules/WorkReport.js')).default;
+
+        const existingReport = await WorkReport.findOne({
+            employee: employeeId,
+            createdAt: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        if (existingReport) {
+            return res.status(400).json({ message: 'Report for today already submitted.' });
+        }
+
+        const report = new WorkReport({
+            employee: employeeId,
+            company: companyId,
+            tasksCompleted,
+            issues,
+            nextDayPlan
+        });
+
+        await report.save();
+        res.status(201).json(report);
+
+    } catch (error) {
+        console.error("Error submitting report:", error);
+        res.status(500).json({ message: 'Server error submitting report' });
+    }
+};

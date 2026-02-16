@@ -19,7 +19,8 @@ export default function Inventory() {
         reorderLevel: 5,
         costPrice: 0,
         sellingPrice: 0,
-        description: ''
+        description: '',
+        image: ''
     });
 
     useEffect(() => {
@@ -51,7 +52,8 @@ export default function Inventory() {
                 reorderLevel: item.reorderLevel,
                 costPrice: item.costPrice || 0,
                 sellingPrice: item.sellingPrice || 0,
-                description: item.description || ''
+                description: item.description || '',
+                image: item.image || ''
             });
         } else {
             setCurrentId(null);
@@ -63,7 +65,8 @@ export default function Inventory() {
                 reorderLevel: 5,
                 costPrice: 0,
                 sellingPrice: 0,
-                description: ''
+                description: '',
+                image: ''
             });
         }
         setIsModalOpen(true);
@@ -82,6 +85,17 @@ export default function Inventory() {
                 ? parseFloat(value) || 0
                 : value
         }));
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData(prev => ({ ...prev, image: reader.result }));
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -182,6 +196,7 @@ export default function Inventory() {
                     <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500">
                         <tr>
                             <th className="px-6 py-4 text-left tracking-wider">SKU</th>
+                            <th className="px-6 py-4 text-left tracking-wider">Image</th>
                             <th className="px-6 py-4 text-left tracking-wider">Product Name</th>
                             <th className="px-6 py-4 text-left tracking-wider">Category</th>
                             <th className="px-6 py-4 text-left tracking-wider">Stock</th>
@@ -196,6 +211,15 @@ export default function Inventory() {
                             return (
                                 <tr key={item._id} className="hover:bg-slate-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-slate-500">{item.sku}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {item.image ? (
+                                            <img src={item.image} alt={item.name} className="h-10 w-10 object-cover rounded-lg border border-slate-200" />
+                                        ) : (
+                                            <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
+                                                <Package size={16} />
+                                            </div>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{item.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{item.category || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">{item.quantityOnHand}</td>
@@ -254,15 +278,33 @@ export default function Inventory() {
                                         placeholder="PROD-001"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                                    <input
-                                        name="category"
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                                        placeholder="Electronics"
-                                    />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Product Image</label>
+                                        <div className="flex items-center gap-4">
+                                            {formData.image ? (
+                                                <img src={formData.image} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
+                                            ) : (
+                                                <div className="h-16 w-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center text-slate-400">
+                                                    <Package size={24} />
+                                                </div>
+                                            )}
+                                            <label className="cursor-pointer bg-white border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
+                                                Upload
+                                                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                                        <input
+                                            name="category"
+                                            value={formData.category}
+                                            onChange={handleChange}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                            placeholder="Electronics"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

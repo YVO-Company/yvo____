@@ -35,6 +35,13 @@ export default function EmployeeHome() {
         reason: ''
     });
 
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportForm, setReportForm] = useState({
+        tasksCompleted: '',
+        issues: '',
+        nextDayPlan: ''
+    });
+
     const fetchStats = async () => {
         try {
             const [leavesRes, calendarRes, broadcastsRes, salaryRes] = await Promise.all([
@@ -77,6 +84,23 @@ export default function EmployeeHome() {
         } catch (err) {
             console.error(err);
             alert('Failed to apply for leave');
+        }
+    };
+
+    const handleSubmitReport = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/employee/dashboard/reports', reportForm);
+            alert('Daily report submitted successfully!');
+            setShowReportModal(false);
+            setReportForm({ tasksCompleted: '', issues: '', nextDayPlan: '' });
+        } catch (err) {
+            console.error(err);
+            if (err.response?.status === 400) {
+                alert(err.response.data.message);
+            } else {
+                alert('Failed to submit report');
+            }
         }
     };
 
@@ -129,6 +153,12 @@ export default function EmployeeHome() {
                             className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-bold"
                         >
                             Apply for Leave
+                        </button>
+                        <button
+                            onClick={() => setShowReportModal(true)}
+                            className="flex-1 sm:flex-none px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 font-bold"
+                        >
+                            Fill Daily Report
                         </button>
                         <button
                             onClick={() => navigate('/employee-dashboard/calendar')}
@@ -200,6 +230,58 @@ export default function EmployeeHome() {
                             <div className="pt-2">
                                 <button type="submit" className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
                                     Submit Request
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* Report MODAL */}
+            {showReportModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50">
+                            <h2 className="text-lg font-bold text-slate-800">Daily Work Report</h2>
+                            <button onClick={() => setShowReportModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSubmitReport} className="p-6 space-y-4">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Tasks Completed Today</label>
+                                <textarea
+                                    required
+                                    rows="3"
+                                    className="w-full border border-slate-200 p-2 rounded-lg"
+                                    value={reportForm.tasksCompleted}
+                                    onChange={e => setReportForm({ ...reportForm, tasksCompleted: e.target.value })}
+                                    placeholder="List tasks you finished..."
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Issues / Blockers</label>
+                                <textarea
+                                    rows="2"
+                                    className="w-full border border-slate-200 p-2 rounded-lg"
+                                    value={reportForm.issues}
+                                    onChange={e => setReportForm({ ...reportForm, issues: e.target.value })}
+                                    placeholder="Any problems encountered?"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 mb-1 block">Plan for Tomorrow</label>
+                                <textarea
+                                    rows="2"
+                                    className="w-full border border-slate-200 p-2 rounded-lg"
+                                    value={reportForm.nextDayPlan}
+                                    onChange={e => setReportForm({ ...reportForm, nextDayPlan: e.target.value })}
+                                    placeholder="What will you work on next?"
+                                />
+                            </div>
+
+                            <div className="pt-2">
+                                <button type="submit" className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-lg shadow-green-200 transition">
+                                    Submit Daily Report
                                 </button>
                             </div>
                         </form>

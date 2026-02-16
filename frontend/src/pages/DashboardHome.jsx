@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -12,10 +12,12 @@ import {
 } from 'lucide-react';
 
 import SuperAdminDashboard from './super-admin/SuperAdminDashboard';
+import ReportsWidget from '../components/dashboard/ReportsWidget';
 
 export default function DashboardHome() {
     const { user } = useAuth();
     const { config } = useOutletContext();
+    const navigate = useNavigate();
 
     // State
     const [stats, setStats] = useState({
@@ -255,6 +257,11 @@ export default function DashboardHome() {
                 </div>
             </div>
 
+            {/* REPORTS WIDGET */}
+            <div className="mb-6">
+                <ReportsWidget companyId={localStorage.getItem('companyId')} />
+            </div>
+
             {/* BOTTOM ACTIVITY / HINTS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl p-6 text-white relative overflow-hidden">
@@ -263,7 +270,10 @@ export default function DashboardHome() {
                         <p className="text-indigo-200 text-sm mb-4 max-w-sm">
                             Analyze your top products and run targeted campaigns. You have {chartData.topProducts.length} active high-performing items.
                         </p>
-                        <button className="bg-white text-indigo-900 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-100 transition">
+                        <button
+                            onClick={() => navigate('/dashboard/analytics')}
+                            className="bg-white text-indigo-900 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-100 transition"
+                        >
                             View Analytics
                         </button>
                     </div>
@@ -275,7 +285,10 @@ export default function DashboardHome() {
                         <h3 className="text-lg font-bold text-slate-800">Need Help?</h3>
                         <p className="text-sm text-slate-500 mt-1">Contact our support team for audits.</p>
                     </div>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 font-medium">
+                    <button
+                        onClick={() => navigate('/help')}
+                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 font-medium"
+                    >
                         Contact Support
                     </button>
                 </div>

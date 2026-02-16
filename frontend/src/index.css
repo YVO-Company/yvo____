@@ -3,12 +3,10 @@
 
 @theme {
   --color-brand: #2563eb;
-  /* Vibrant blue for better visibility */
   --color-accent: #6b4c6b;
-  /* The purple from your photo as an accent */
   --color-brand-light: #f3f4f6;
-  --font-main: 'Outfit', sans-serif;
-  --font-hand: 'Permanent Marker', cursive;
+  --font-main: "Outfit", sans-serif;
+  --font-hand: "Permanent Marker", cursive;
 }
 
 :root {
@@ -76,7 +74,7 @@ body {
   font-size: 1.25rem;
   color: white;
   text-decoration: none;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, var(--color-brand) 100%);
   border-radius: 100px;
   /* Perfectly round pill shape */
   overflow: hidden;
@@ -115,7 +113,7 @@ body {
 .btn-brush:hover {
   transform: translateY(-3px);
   box-shadow: 0 20px 35px -10px rgba(37, 99, 235, 0.5);
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #60a5fa 0%, var(--color-brand) 100%);
 }
 
 .btn-brush:hover::after {

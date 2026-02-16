@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Rocket, LogIn } from 'lucide-react';
+import { Menu, X, Rocket, LogIn, Bell } from 'lucide-react';
 
 const navLinks = [
   { label: 'Home', to: '/' },
@@ -13,6 +13,7 @@ const navLinks = [
 export default function Header() {
   const [profile, setProfile] = useState({ name: '', role: '' });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const location = useLocation();
 
   const [isVisible, setIsVisible] = useState(true);
@@ -101,6 +102,46 @@ export default function Header() {
         <div className="hidden lg:flex items-center gap-4">
           {profile.name ? (
             <div className="flex items-center gap-4">
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  className="p-2 text-slate-400 hover:text-brand transition relative"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                >
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-4 border-b border-slate-50 flex justify-between items-center">
+                      <h3 className="font-bold text-slate-800">Notifications</h3>
+                      <button className="text-xs text-brand font-medium">Mark all read</button>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {[1, 2, 3].map((_, i) => (
+                        <div key={i} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer">
+                          <div className="flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                              <Bell className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm text-slate-600 leading-snug">
+                                <span className="font-bold text-slate-900">System Update</span>: New payroll features are now live.
+                              </p>
+                              <p className="text-xs text-slate-400 mt-1">2 hours ago</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="p-3 text-center border-t border-slate-50">
+                      <button className="text-xs font-bold text-brand hover:underline">View All Notifications</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <Link to="/dashboard" className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-full pl-1 pr-4 py-1 hover:bg-white transition">
                 <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center text-xs font-black">
                   {initials}
