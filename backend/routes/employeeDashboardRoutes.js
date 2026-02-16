@@ -4,7 +4,8 @@ import {
     getLeaveHistory,
     applyForLeave,
     getEmployeeCalendar,
-    getEmployeeBroadcasts
+    getEmployeeBroadcasts,
+    submitWorkReport
 } from '../controllers/employeeFeatureController.js';
 import { requireAuth as protectEmployee } from '../src/middleware/auth.middleware.js';
 
@@ -24,5 +25,8 @@ router.get('/calendar', getEmployeeCalendar);
 
 // Broadcasts
 router.get('/broadcasts', getEmployeeBroadcasts);
+
+// Reports
+router.post('/reports', submitWorkReport);
 
 export default router;

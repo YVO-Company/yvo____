@@ -4,7 +4,7 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import {
     LayoutDashboard, Building2, Ticket, Flag, Cloud,
-    BarChart3, Shield, Settings, LogOut, Users, Calendar, FileText, DollarSign, ChevronDown
+    BarChart3, Shield, Settings, LogOut, Users, Calendar, FileText, DollarSign, ChevronDown, Menu, X
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -12,7 +12,13 @@ export default function DashboardLayout() {
     const navigate = useNavigate();
     const [config, setConfig] = useState(null);
     const [configLoading, setConfigLoading] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
     const location = useLocation();
+
+    // Close sidebar on route change (mobile)
+    useEffect(() => {
+        setIsSidebarOpen(false);
+    }, [location.pathname]);
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -51,14 +57,28 @@ export default function DashboardLayout() {
     if (user.isSuperAdmin) {
         return (
             <div className="flex min-h-screen bg-slate-50 text-slate-900">
-                <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-slate-200">
-                    <div className="flex h-16 items-center px-6 border-b border-slate-100">
-                        <img src="/admin-logo.svg" alt="Admin" className="h-8 w-8 mr-3 object-contain" />
-                        <span className="text-lg font-bold text-slate-800 tracking-tight">Admin</span>
+                {/* Mobile Overlay */}
+                {isSidebarOpen && (
+                    <div
+                        className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
+                )}
+
+                {/* Sidebar */}
+                <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out \${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+                    <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
+                        <div className="flex items-center">
+                            <img src="/admin-logo.svg" alt="Admin" className="h-8 w-8 mr-3 object-contain" />
+                            <span className="text-lg font-bold text-slate-800 tracking-tight">Admin</span>
+                        </div>
+                        <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-slate-600">
+                            <X size={24} />
+                        </button>
                     </div>
 
                     <nav className="mt-6 px-3 space-y-1">
-                        <SidebarItem icon={<LayoutDashboard size={20} />} label="Dashboard Overview" href="/dashboard" active={location.pathname === '/dashboard'} />
+                        <SidebarItem icon={<LayoutDashboard size={20} />} label="Overview" href="/dashboard" active={location.pathname === '/dashboard'} />
                         <SidebarItem icon={<Building2 size={20} />} label="Companies" href="/dashboard/companies" active={location.pathname === '/dashboard/companies'} />
                         <SidebarItem icon={<Users size={20} />} label="Manage Clients" href="/dashboard/clients" active={location.pathname === '/dashboard/clients'} />
                         <SidebarItem icon={<Ticket size={20} />} label="Plans & Feature Flags" href="/dashboard/plans" active={location.pathname === '/dashboard/plans'} />
@@ -79,15 +99,23 @@ export default function DashboardLayout() {
                     </div>
                 </aside>
 
-                <div className="flex-1 ml-64 flex flex-col">
+                <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
                     {/* Top Header */}
-                    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-8">
-                        <div className="flex items-center w-full max-w-md">
-                            <input
-                                type="text"
-                                placeholder="Search for companies, features, or logs..."
-                                className="w-full h-10 pl-4 pr-10 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
-                            />
+                    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-8">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                            >
+                                <Menu size={24} />
+                            </button>
+                            <div className="hidden md:flex items-center w-full max-w-md">
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    className="w-64 h-10 pl-4 pr-10 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
+                                />
+                            </div>
                         </div>
                         <div className="flex items-center gap-4">
                             <button className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
@@ -103,7 +131,7 @@ export default function DashboardLayout() {
                         </div>
                     </header>
 
-                    <main className="p-8">
+                    <main className="p-4 lg:p-8 overflow-x-hidden">
                         <Outlet context={{ config }} />
                     </main>
                 </div>
@@ -114,12 +142,25 @@ export default function DashboardLayout() {
     // COMPANY ADMIN LAYOUT (Clean style)
     return (
         <div className="flex min-h-screen bg-slate-50 text-slate-900">
-            <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-slate-200 overflow-y-auto">
-                <div className="flex h-16 items-center px-6 border-b border-slate-100">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-sm shadow mr-3">
-                        YO
+            {/* Mobile Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 overflow-y-auto transform transition-transform duration-300 ease-in-out \${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+                <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
+                    <div className="flex items-center">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-sm shadow mr-3">
+                            YO
+                        </div>
+                        <span className="text-lg font-bold text-slate-800 tracking-tight truncate max-w-[120px]">{config?.company?.name || 'YVO Admin'}</span>
                     </div>
-                    <span className="text-lg font-bold text-slate-800 tracking-tight">{config?.company?.name || 'YVO Admin'}</span>
+                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-slate-600">
+                        <X size={24} />
+                    </button>
                 </div>
 
                 <nav className="mt-6 px-3 space-y-1">
@@ -201,22 +242,30 @@ export default function DashboardLayout() {
                 </div>
             </aside>
 
-            <div className="flex-1 ml-64 flex flex-col">
-                <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-8">
-                    <h2 className="text-lg font-semibold text-slate-800">
-                        {location.pathname === '/dashboard' ? 'Overview' : location.pathname.split('/').pop().charAt(0).toUpperCase() + location.pathname.split('/').pop().slice(1)}
-                    </h2>
+            <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
+                <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-8">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <h2 className="text-lg font-semibold text-slate-800 truncate">
+                            {location.pathname === '/dashboard' ? 'Overview' : location.pathname.split('/').pop().charAt(0).toUpperCase() + location.pathname.split('/').pop().slice(1)}
+                        </h2>
+                    </div>
                     <div className="flex items-center gap-4">
                         <div className="text-sm text-right hidden md:block">
                             <div className="font-medium text-slate-900">{user.fullName}</div>
                             <div className="text-xs text-slate-500">{user.email}</div>
                         </div>
-                        <div className="h-10 w-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
-                            <img src={`https://ui-avatars.com/api/?name=${user.fullName}`} alt="Profile" />
+                        <div className="h-10 w-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm flex-shrink-0">
+                            <img src={`https://ui-avatars.com/api/?name=\${user.fullName}`} alt="Profile" />
                         </div>
                     </div>
                 </header>
-                <main className="p-8">
+                <main className="p-4 lg:p-8 overflow-x-hidden">
                     {configLoading ? <div className="animate-pulse">Loading...</div> : <Outlet context={{ config }} />}
                 </main>
             </div>
@@ -252,7 +301,7 @@ const SidebarItem = ({ icon, label, href, active, subItems, locked }) => {
                         }
                         setIsOpen(!isOpen);
                     }}
-                    className={`flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 
+                    className={`flex items-center justify-between w-full px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 
             ${active
                             ? 'bg-blue-50 text-blue-700 shadow-sm'
                             : locked
@@ -294,7 +343,7 @@ const SidebarItem = ({ icon, label, href, active, subItems, locked }) => {
         <Link
             to={href}
             onClick={handleLockedClick}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 
+            className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 
       ${active
                     ? 'bg-blue-50 text-blue-700 shadow-sm'
                     : locked

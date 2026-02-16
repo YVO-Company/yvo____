@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Mail, Phone, MoreVertical, Briefcase, UserCheck, Trash2, Edit2, X } from 'lucide-react';
+import { Plus, Search, Filter, Mail, Phone, MoreVertical, Briefcase, UserCheck, Trash2, Edit2, X, Eye } from 'lucide-react';
 import api from '../../services/api';
+import EmployeeDetailsModal from '../../components/employee/EmployeeDetailsModal';
 
 export default function Employees() {
     const [searchTerm, setSearchTerm] = useState('');
@@ -9,6 +10,8 @@ export default function Employees() {
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentEmployeeId, setCurrentEmployeeId] = useState(null);
+    const [userToView, setUserToView] = useState(null);
+    const [isViewDeleted, setIsViewDeleted] = useState(false); // [NEW]
 
     const [employeeForm, setEmployeeForm] = useState({
         firstName: '', lastName: '', email: '', phone: '', password: '',
@@ -18,12 +21,13 @@ export default function Employees() {
 
     useEffect(() => {
         fetchEmployees();
-    }, []);
+    }, [isViewDeleted]); // [NEW] Re-fetch when view mode changes
 
     const fetchEmployees = async () => {
         try {
+            setLoading(true); // Ensure loading state
             const companyId = localStorage.getItem('companyId');
-            const response = await api.get('/employees', { params: { companyId } });
+            const response = await api.get('/employees', { params: { companyId, isDeleted: isViewDeleted } });
             setEmployees(response.data);
         } catch (err) {
             console.error("Failed to fetch employees", err);
@@ -101,6 +105,18 @@ export default function Employees() {
         }
     };
 
+    const handleRestoreEmployee = async (id) => {
+        if (window.confirm("Restore this employee?")) {
+            try {
+                await api.patch(`/employees/${id}/restore`);
+                fetchEmployees();
+            } catch (err) {
+                console.error("Failed to restore", err);
+                alert(err.response?.data?.message || "Failed to restore employee");
+            }
+        }
+    };
+
     if (loading) return <div className="p-10 text-center">Loading employees...</div>;
 
     return (
@@ -131,11 +147,14 @@ export default function Employees() {
                     />
                 </div>
                 <div className="flex gap-2">
-                    <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">
-                        <Filter size={16} /> Filter
+                    <button
+                        onClick={() => setIsViewDeleted(!isViewDeleted)}
+                        className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition ${isViewDeleted ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                    >
+                        <Trash2 size={16} /> {isViewDeleted ? 'Show Active' : 'Trash'}
                     </button>
                     <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">
-                        Export
+                        <Filter size={16} /> Filter
                     </button>
                 </div>
             </div>
@@ -182,26 +201,45 @@ export default function Employees() {
                             <span className="text-sm font-semibold text-slate-900">₹{employee.salary?.toLocaleString()}/yr</span>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={() => handleDeleteEmployee(employee._id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                    title="Delete Employee"
+                                    onClick={() => setUserToView(employee)}
+                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                    title="View Details"
                                 >
-                                    <Trash2 size={18} />
+                                    <Eye size={18} />
                                 </button>
-                                <button
-                                    onClick={() => handleOpenEditModal(employee)}
-                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
-                                    title="Edit Employee"
-                                >
-                                    <Edit2 size={18} />
-                                </button>
+
+                                {!isViewDeleted ? (
+                                    <>
+                                        <button
+                                            onClick={() => handleDeleteEmployee(employee._id)}
+                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                            title="Delete Employee"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleOpenEditModal(employee)}
+                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                                            title="Edit Employee"
+                                        >
+                                            <Edit2 size={18} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        onClick={() => handleRestoreEmployee(employee._id)}
+                                        className="text-xs font-bold text-indigo-600 px-3 py-1 bg-indigo-50 rounded-lg hover:bg-indigo-100"
+                                    >
+                                        Restore
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* MODAL */}
+            {/* CREATE/EDIT MODAL */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -304,6 +342,14 @@ export default function Employees() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* DETAILS MODAL */}
+            {userToView && (
+                <EmployeeDetailsModal
+                    employee={userToView}
+                    onClose={() => setUserToView(null)}
+                />
             )}
         </div>
     );

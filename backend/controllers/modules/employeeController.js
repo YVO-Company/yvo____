@@ -7,13 +7,19 @@ import bcrypt from 'bcryptjs';
 import { Employee } from '../../models/Modules/Employee.js';
 import { LeaveRequest } from '../../models/Modules/LeaveRequest.js';
 
+// ... existing imports
+import nodemailer from 'nodemailer';
+
 // --- Salary Records ---
 export const getSalaryRecords = async (req, res) => {
     try {
-        const { companyId } = req.query;
+        const { companyId, employeeId } = req.query;
         if (!companyId) return res.status(400).json({ message: 'Company ID is required' });
 
-        const records = await SalaryRecord.find({ companyId })
+        const query = { companyId };
+        if (employeeId) query.employeeId = employeeId;
+
+        const records = await SalaryRecord.find(query)
             .populate('employeeId', 'firstName lastName position')
             .sort({ paymentDate: -1 });
 
@@ -23,7 +29,30 @@ export const getSalaryRecords = async (req, res) => {
     }
 };
 
-// --- Broadcasts ---
+export const deleteSalaryRecord = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const record = await SalaryRecord.findById(id);
+        if (!record) return res.status(404).json({ message: 'Salary record not found' });
+
+        // Delete associated expense if it exists (matching amount and date approx?)
+        // Ideally we should have stored expenseId in SalaryRecord.
+        // For now, we'll try to find a matching expense.
+        await Expense.findOneAndDelete({
+            companyId: record.companyId,
+            category: 'Payroll',
+            amount: record.amount,
+            date: record.paymentDate
+        });
+
+        await SalaryRecord.findByIdAndDelete(id);
+        res.status(200).json({ message: 'Salary record deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ... Broadcasts ... (No changes)
 
 export const createBroadcastGroup = async (req, res) => {
     try {
@@ -99,13 +128,21 @@ export const sendBroadcastMessage = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-// Get all employees
+
+// Get all employees (Modified to support Deleted view)
 export const getEmployees = async (req, res) => {
     try {
-        const { companyId } = req.query;
+        const { companyId, isDeleted } = req.query;
         if (!companyId) return res.status(400).json({ message: 'Company ID is required' });
 
-        const employees = await Employee.find({ companyId, isDeleted: false }).sort({ createdAt: -1 });
+        const filter = { companyId };
+        if (isDeleted === 'true') {
+            filter.isDeleted = true;
+        } else {
+            filter.isDeleted = false; // Default behavior
+        }
+
+        const employees = await Employee.find(filter).sort({ createdAt: -1 });
         res.status(200).json(employees);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -118,7 +155,7 @@ export const getEmployeeById = async (req, res) => {
         const { id } = req.params;
         const employee = await Employee.findById(id);
 
-        if (!employee || employee.isDeleted) {
+        if (!employee) {
             return res.status(404).json({ message: 'Employee not found' });
         }
 
@@ -237,31 +274,50 @@ export const deleteEmployee = async (req, res) => {
     }
 };
 
+// Restore Employee
+export const restoreEmployee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const employee = await Employee.findById(id);
+        if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+        // Un-mangle (heuristic: removing -deleted-timestamp)
+        // Or simply ask user to update email if collision?
+        // Let's try to strip the suffix.
+        let newEmail = employee.email.split('-deleted-')[0];
+        let newPhone = employee.phone.split('-deleted-')[0];
+
+        // Check for collisions
+        const existing = await Employee.findOne({
+            $or: [{ email: newEmail }, { phone: newPhone }],
+            _id: { $ne: id },
+            isDeleted: false
+        });
+
+        if (existing) {
+            return res.status(400).json({ message: 'Original email/phone is taken by another active employee. Please manually edit to restore.' });
+        }
+
+        employee.isDeleted = false;
+        employee.status = 'Active';
+        employee.email = newEmail;
+        employee.phone = newPhone;
+        await employee.save();
+
+        res.status(200).json(employee);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // Pay Salary with Leave Deduction
 export const paySalary = async (req, res) => {
     try {
         const { id } = req.params; // Employee ID
         const { amount, payPeriod, paymentDate, remarks, companyId } = req.body;
 
-        // amount here might be the user-edited amount, OR we calculate it.
-        // BUT logic demands we calculate deduction.
-        // Let's assume the frontend sends the *final* calculated amount,
-        // OR we recalculate it here for safety.
-        // Better: We accept the final amount, but we also calc deduction to store record.
-
-        // Actually, let's fetch APPROVED leaves for this month to store in record.
-        // We'll rely on frontend or a separate "Calculate" step?
-        // Let's do calculation here if "calculate: true" is passed?
-        // Simpler: Just store what is sent. Frontend handles calculation display.
-        // BUT the prompt says "selary count according this".
-        // Let's implement the calculation logic here too.
-
         const employee = await Employee.findById(id);
         if (!employee) return res.status(404).json({ message: 'Employee not found' });
-
-        // Let's extract month/year from payPeriod (e.g., "October 2023")
-        // This is tricky without strict format. Let's assume frontend passes breakdown?
-        // If not, we trust the `amount` passed as Final.
 
         const { baseSalary, leavesTaken, freeLeaves, deductionAmount } = req.body;
 
@@ -271,6 +327,7 @@ export const paySalary = async (req, res) => {
             employeeId: id,
             amount: amount, // Final Paid Amount
             baseSalary: baseSalary || employee.salary,
+            bonus: req.body.bonus || 0,
             leavesTaken: leavesTaken || 0,
             freeLeaves: freeLeaves || employee.freeLeavesPerMonth,
             deductionAmount: deductionAmount || 0,
@@ -291,6 +348,29 @@ export const paySalary = async (req, res) => {
             paymentMethod: 'Bank Transfer'
         });
         await expense.save();
+
+        // 3. Send Email Notification
+        // Only if email and password env vars are set (or mocked)
+        // For this demo, we can assume a simple transporter if envs exist, else skip
+        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
+                }
+            });
+
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: employee.email,
+                subject: `Salary Slip: ${payPeriod}`,
+                text: `Dear ${employee.firstName},\n\nYour salary for ${payPeriod} has been processed.\n\nAmount Credited: ₹${amount}\nPayment Date: ${paymentDate}\n\nRemarks: ${remarks || ''}\n\nThank you,\n${companyId} HR Team`
+            };
+
+            // Non-blocking email send
+            transporter.sendMail(mailOptions).catch(err => console.error("Failed to send salary email:", err));
+        }
 
         res.status(200).json({ message: 'Salary paid and expense recorded', salaryRecord });
     } catch (error) {
@@ -332,11 +412,6 @@ export const calculateSalary = async (req, res) => {
         const chargeableLeaves = Math.max(0, totalLeaves - freeLeaves);
 
         // Calculate Daily Salary based on Working Days
-        // 5 Days/Week -> ~22 Days/Month
-        // 6 Days/Week -> ~26 Days/Month (Standard)
-        // 4 Days/Week -> ~18 Days/Month
-        // 7 Days/Week -> 30 Days/Month
-
         const workingDaysPerWeek = employee.workingDaysPerWeek || 6;
         let avgWorkingDays = 26; // Default to 6 days/week
         if (workingDaysPerWeek === 5) avgWorkingDays = 22;
@@ -345,8 +420,10 @@ export const calculateSalary = async (req, res) => {
         else avgWorkingDays = workingDaysPerWeek * 4.33; // Fallback
 
         const dailySalary = (employee.salary / 12) / avgWorkingDays;
-        const deduction = Math.round(chargeableLeaves * dailySalary);
-        const finalSalary = Math.round((employee.salary / 12) - deduction);
+        // Deduction logic removed as per request
+        // Deduction logic restored
+        const deduction = Math.round(dailySalary * chargeableLeaves);
+        const finalSalary = Math.round((employee.salary / 12) - deduction + (req.query.bonus ? Number(req.query.bonus) : 0));
 
         res.json({
             baseSalary: Math.round(employee.salary / 12),
@@ -362,19 +439,20 @@ export const calculateSalary = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
 // --- Admin Leave Management ---
 export const getLeaveRequests = async (req, res) => {
     try {
-        const { companyId } = req.query;
-        console.log(`DEBUG: getLeaveRequests called with companyId: ${companyId}`);
+        const { companyId, employeeId } = req.query;
 
         if (!companyId) return res.status(400).json({ message: 'Company ID is required' });
 
-        const leaves = await LeaveRequest.find({ companyId })
+        const query = { companyId };
+        if (employeeId) query.employeeId = employeeId;
+
+        const leaves = await LeaveRequest.find(query)
             .populate('employeeId', 'firstName lastName position')
             .sort({ createdAt: -1 });
-
-        console.log(`DEBUG: Found ${leaves.length} leaves.`);
 
         res.status(200).json(leaves);
     } catch (error) {
