@@ -32,4 +32,5 @@ const workReportSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-export default mongoose.model('WorkReport', workReportSchema);
+export const WorkReport = mongoose.model('WorkReport', workReportSchema);
+

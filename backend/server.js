@@ -19,6 +19,8 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import employeeAuthRoutes from './routes/employeeAuthRoutes.js';
 import employeeDashboardRoutes from './routes/employeeDashboardRoutes.js';
+import backupRoutes from './routes/backupRoutes.js';
+
 
 dotenv.config();
 
@@ -52,6 +54,8 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/backups', backupRoutes);
+
 
 app.get('/', (req, res) => {
   res.send('YVO Backend API Running');

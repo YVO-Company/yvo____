@@ -37,7 +37,9 @@ const FEATURE_GROUPS = [
         flags: [
             { key: "module_broadcasts", label: "Broadcasts (SMS/Email)", desc: "Bulk messaging campaigns" },
             { key: "module_analytics", label: "Advanced Analytics", desc: "Deep insights and reporting" },
+            { key: "module_backup", label: "Backup & Data Export", desc: "Full company data exports and history" },
             { key: "ai_enabled", label: "AI Assistant", desc: "Smart recommendations and help" }
+
         ]
     }
 ];

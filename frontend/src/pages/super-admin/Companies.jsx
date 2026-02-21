@@ -184,8 +184,10 @@ export default function Companies() {
         { key: 'module_calendar', label: 'Calendar', desc: 'Scheduling & events' },
         { key: 'module_broadcasts', label: 'Broadcasts', desc: 'Mass messaging tools' },
         { key: 'module_analytics', label: 'Analytics', desc: 'Reports & insights' },
+        { key: 'module_backup', label: 'Backup & Data Export', desc: 'Full company data exports and history' },
         { key: 'ai_enabled', label: 'AI Assistant', desc: 'Smart recommendations and help' },
     ];
+
 
     return (
         <div className="space-y-6">
@@ -276,12 +278,20 @@ export default function Companies() {
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
                                             <button
+                                                onClick={() => window.location.href = `/dashboard/backup-reports?companyId=${c._id}`}
+                                                className="text-amber-600 hover:text-amber-800 flex items-center gap-1"
+                                                title="View Backups"
+                                            >
+                                                <HardDrive size={16} />
+                                            </button>
+                                            <button
                                                 onClick={() => openModal(c, 'details')}
                                                 className="text-slate-600 hover:text-blue-600 flex items-center gap-1"
                                                 title="View Details"
                                             >
                                                 <Eye size={16} />
                                             </button>
+
                                             <button
                                                 onClick={() => openModal(c, 'features')}
                                                 className="text-purple-600 hover:text-purple-800 flex items-center gap-1"

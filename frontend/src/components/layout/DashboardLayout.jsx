@@ -3,8 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import {
-    LayoutDashboard, Building2, Ticket, Flag, Cloud,
+    LayoutDashboard, Building2, Ticket, Flag, Cloud, Database,
     BarChart3, Shield, Settings, LogOut, Users, Calendar, FileText, DollarSign, ChevronDown, Menu, X
+
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -87,8 +88,10 @@ export default function DashboardLayout() {
                             <div className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">System</div>
                         </div>
                         <SidebarItem icon={<Cloud size={20} />} label="Cloud & Sync Control" href="/dashboard/sync" />
+                        <SidebarItem icon={<Database size={20} />} label="Backup & Reports" href="/dashboard/backup-reports" active={location.pathname === '/dashboard/backup-reports'} />
                         <SidebarItem icon={<BarChart3 size={20} />} label="Analytics (Year-wise)" href="/dashboard/analytics" />
                         <SidebarItem icon={<Shield size={20} />} label="Security & Logs" href="/dashboard/logs" />
+
                     </nav>
 
                     <div className="absolute bottom-0 w-full border-t border-slate-200 p-4">
@@ -223,8 +226,17 @@ export default function DashboardLayout() {
                             href="/dashboard/analytics"
                             locked={!config?.modules?.analytics}
                         />
+                        <SidebarItem
+                            icon={<Database size={20} />}
+                            label="Backup & Reports"
+                            href="/dashboard/backup-reports"
+                            active={location.pathname === '/dashboard/backup-reports'}
+                            locked={!config?.modules?.backup}
+                        />
+
                         <SidebarItem icon={<Settings size={20} />} label="Settings" href="/dashboard/settings" />
                     </div>
+
                 </nav>
 
                 <div className="mt-auto border-t border-slate-200 p-4">

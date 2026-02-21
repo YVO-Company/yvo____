@@ -88,7 +88,9 @@ export const getConfig = async (req, res) => {
                 calendar: effectiveFlags['module_calendar'] || effectiveFlags['calendar'] || false,
                 broadcasts: effectiveFlags['module_broadcasts'] || false,
                 analytics: effectiveFlags['module_analytics'] || effectiveFlags['analytics'] || false, // Analytics also locked likely
+                backup: effectiveFlags['module_backup'] || effectiveFlags['backup'] || false,
             }
+
         };
 
         // Return the "One Config Object to Rule Them All"
