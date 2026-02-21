@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 
 const auditLogSchema = new mongoose.Schema({
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: false }, // Can be null for System-level audits
-    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    companyId: { type: mongoose.Schema.Types.Mixed, required: false }, // Can be null for System-level audits
+    actorId: { type: mongoose.Schema.Types.Mixed, required: true },
 
     action: { type: String, required: true }, // e.g. "COMPANY_CREATED", "FLAG_CHANGED", "INVOICE_DELETED"
     targetId: { type: String }, // ID of the object being acted upon

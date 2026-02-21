@@ -82,7 +82,6 @@ export default function DashboardHome() {
             });
 
             // --- CHART DATA PREPARATION ---
-
             // 1. Revenue vs Expenses (Last 6 Months)
             const months = {};
             const today = new Date();
@@ -123,7 +122,7 @@ export default function DashboardHome() {
             setChartData({
                 revenueVsExpenses: revenueData,
                 topProducts: topProducts,
-                salesTrend: [] // Can add daily trend if needed
+                salesTrend: []
             });
 
         } catch (err) {
@@ -189,7 +188,6 @@ export default function DashboardHome() {
 
             {/* MAIN CHARTS ROW */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
                 {/* REVENUE VS EXPENSES */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="text-lg font-bold text-slate-800 mb-6">Financial Performance (6 Months)</h3>
@@ -215,7 +213,6 @@ export default function DashboardHome() {
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 mb-2">Top Selling Products</h3>
                     <p className="text-sm text-slate-500 mb-6">Based on quantity sold.</p>
-
                     <div className="flex-grow">
                         {chartData.topProducts.length > 0 ? (
                             <div className="h-64 w-full">
@@ -242,7 +239,6 @@ export default function DashboardHome() {
                             <div className="h-full flex items-center justify-center text-slate-400 text-sm">No sales data yet</div>
                         )}
                     </div>
-
                     <div className="mt-4 space-y-3">
                         {chartData.topProducts.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-center text-sm">
@@ -257,14 +253,9 @@ export default function DashboardHome() {
                 </div>
             </div>
 
-            {/* REPORTS WIDGET */}
-            <div className="mb-6">
-                <ReportsWidget companyId={localStorage.getItem('companyId')} />
-            </div>
-
-            {/* BOTTOM ACTIVITY / HINTS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl p-6 text-white relative overflow-hidden">
+            {/* BOTTOM ACTIVITY / REPORTS */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl p-6 text-white relative overflow-hidden">
                     <div className="relative z-10">
                         <h3 className="text-xl font-bold mb-2">Boost your Sales</h3>
                         <p className="text-indigo-200 text-sm mb-4 max-w-sm">
@@ -280,17 +271,8 @@ export default function DashboardHome() {
                     <Activity className="absolute right-[-20px] bottom-[-20px] text-white opacity-5 w-40 h-40" />
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-center justify-between shadow-sm">
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-800">Need Help?</h3>
-                        <p className="text-sm text-slate-500 mt-1">Contact our support team for audits.</p>
-                    </div>
-                    <button
-                        onClick={() => navigate('/help')}
-                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 font-medium"
-                    >
-                        Contact Support
-                    </button>
+                <div className="lg:col-span-1">
+                    <ReportsWidget />
                 </div>
             </div>
         </div>

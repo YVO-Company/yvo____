@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Download, Filter, Calendar as CalIcon, TrendingUp, DollarSign, Receipt, CheckCircle, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Download, Filter, Calendar as CalIcon, TrendingUp, DollarSign, Receipt, CheckCircle, Clock, FileText } from 'lucide-react';
+
 import api from '../../services/api';
 import html2pdf from 'html2pdf.js';
 
 export default function Finance() {
+    const navigate = useNavigate();
     const [allExpenses, setAllExpenses] = useState([]);
+
     const [allInvoices, setAllInvoices] = useState([]);
 
     // Filtered Data for View
@@ -222,6 +226,15 @@ export default function Finance() {
                     >
                         <Download size={18} /> Generate Report
                     </button>
+
+                    <button
+                        onClick={() => navigate('/dashboard/backup-reports')}
+                        className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50"
+                    >
+                        <FileText size={18} /> Backup & Reports
+                    </button>
+
+
                     <button
                         onClick={() => setShowExpenseModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm"
