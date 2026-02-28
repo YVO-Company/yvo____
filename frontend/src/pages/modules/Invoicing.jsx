@@ -13,6 +13,7 @@ export default function Invoicing() {
     const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
     const [isViewDeleted, setIsViewDeleted] = useState(false);
     const [activeTab, setActiveTab] = useState('invoices');
+    const [templates, setTemplates] = useState([]);
 
     // Return Products State
     const [showReturnModal, setShowReturnModal] = useState(false);
@@ -23,6 +24,7 @@ export default function Invoicing() {
     useEffect(() => {
         fetchInvoices();
         fetchConfig();
+        fetchTemplates();
     }, [isViewDeleted]);
 
     const fetchConfig = async () => {
@@ -31,6 +33,16 @@ export default function Invoicing() {
             setCompanyConfig(res.data.company);
         } catch (e) {
             console.error("Failed to load company config");
+        }
+    };
+
+    const fetchTemplates = async () => {
+        try {
+            const companyId = localStorage.getItem('companyId');
+            const res = await api.get('/invoice-templates', { params: { companyId } });
+            setTemplates(res.data);
+        } catch (e) {
+            console.error("Failed to load templates");
         }
     };
 
@@ -232,6 +244,17 @@ export default function Invoicing() {
             fetchInvoices();
         } catch (err) {
             alert("Failed to restore");
+        }
+    };
+
+    const handleDeleteTemplate = async (e, id) => {
+        e.stopPropagation();
+        if (!window.confirm("Delete this template?")) return;
+        try {
+            await api.delete(`/invoice-templates/${id}`);
+            fetchTemplates();
+        } catch (err) {
+            alert("Failed to delete template");
         }
     };
 
@@ -479,6 +502,53 @@ export default function Invoicing() {
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                ) : activeTab === 'templates' ? (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-semibold text-slate-800">Invoice Templates</h3>
+                            <p className="text-sm text-slate-500">Save frequently used invoices to create new ones quickly.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {templates.map(template => (
+                                <div key={template._id} className="border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all bg-slate-50 relative group">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <h4 className="font-bold text-slate-800 text-lg">{template.name}</h4>
+                                        {template.type === 'GLOBAL' && (
+                                            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">GLOBAL</span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1 mb-6">
+                                        <p className="text-sm text-slate-500">Theme: <span className="capitalize">{template.themeIdentifier}</span></p>
+                                        <p className="text-sm text-slate-500">{template.items.length} Items</p>
+                                        <p className="text-sm text-slate-500">Tax Rate: {template.taxRate}%</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => window.location.href = `/dashboard/invoices/new`}
+                                            className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+                                            title="Go to builder and select from dropdown"
+                                        >
+                                            Use Template
+                                        </button>
+                                        {template.type !== 'GLOBAL' && (
+                                            <button
+                                                onClick={(e) => handleDeleteTemplate(e, template._id)}
+                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {templates.length === 0 && (
+                                <div className="col-span-full p-8 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                                    <p className="text-slate-500">No templates found. Create one from the Invoice Builder.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ) : null

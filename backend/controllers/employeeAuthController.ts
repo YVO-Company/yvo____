@@ -1,0 +1,99 @@
+import { Request, Response } from 'express';
+import { signToken } from '../src/utils/jwt.js';
+import bcrypt from 'bcryptjs';
+import { Employee } from '../models/Modules/Employee.js';
+import { Company } from '../models/Global/Company.js';
+import { Plan } from '../models/Global/Plan.js';
+
+export const loginEmployee = async (req: Request, res: Response) => {
+    try {
+        let { phone, password } = req.body;
+
+        // Normalize phone: remove all non-digit characters and take last 10 digits
+        const numericPhone = phone.replace(/[^\d]/g, '');
+        const normalizedPhone = numericPhone.length > 10 ? numericPhone.slice(-10) : numericPhone;
+
+        // Find employee by phone
+        const employee = await Employee.findOne({ phone: normalizedPhone }).populate('companyId', 'name logo');
+        if (!employee) {
+            return res.status(401).json({ message: 'Invalid phone or password' });
+        }
+
+        // Check password
+        if (!employee.password) {
+            return res.status(400).json({ message: 'Account not fully set up. Please contact admin.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, employee.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid phone or password' });
+        }
+
+        if (employee.status !== 'Active') {
+            return res.status(403).json({ message: 'Account is not active' });
+        }
+
+        // Check if Company has Employee Module Enabled
+        const company = await Company.findById(employee.companyId as any).populate('planId');
+        if (!company) {
+            return res.status(404).json({ message: 'Company not found' });
+        }
+
+        // Calculate functionality access
+        const plan = await Plan.findById((company.planId as any)._id || company.planId);
+        if (!plan) {
+            return res.status(404).json({ message: 'Plan not found' });
+        }
+
+        // Handle Mongoose Maps/Objects correctly
+        const planDefaults = plan.defaultFlags instanceof Map ? Object.fromEntries(plan.defaultFlags) : (plan.defaultFlags || {});
+        const companyOverrides = company.featureFlags instanceof Map ? Object.fromEntries(company.featureFlags) : (company.featureFlags || {});
+
+        // Merge logic: Plan Defaults -> Company Overrides
+        const effectiveFlags = { ...planDefaults, ...companyOverrides };
+
+        if (!effectiveFlags['module_employees']) {
+            return res.status(403).json({ message: 'Employee access is disabled for your company.' });
+        }
+
+        // Generate Token
+        const token = signToken(
+            { id: (employee._id as any).toString(), role: 'employee', companyId: (employee.companyId as any)._id?.toString() || employee.companyId?.toString() }
+        );
+
+        res.json({
+            token,
+            user: {
+                id: employee._id,
+                firstName: employee.firstName,
+                lastName: employee.lastName,
+                email: employee.email,
+                phone: employee.phone,
+                position: employee.position,
+                department: employee.department,
+                company: employee.companyId,
+                avatar: employee.avatar,
+                role: 'employee'
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Employee Login Error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+export const getEmployeeProfile = async (req: Request, res: Response) => {
+    try {
+        const employeeId = req.user?.userId || (req.user as any)?.id; // From middleware
+        const employee = await Employee.findById(employeeId).populate('companyId', 'name logo');
+
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        res.json(employee);
+    } catch (error: any) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
