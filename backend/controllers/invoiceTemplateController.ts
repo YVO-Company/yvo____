@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { InvoiceTemplate } from '../models/Modules/InvoiceTemplate.js';
+import { Company } from '../models/Global/Company.js';
 
 export const getTemplates = async (req: Request, res: Response) => {
     try {
@@ -23,6 +24,17 @@ export const getTemplates = async (req: Request, res: Response) => {
     }
 };
 
+export const getAllTemplatesAdmin = async (req: Request, res: Response) => {
+    try {
+        const templates = await InvoiceTemplate.find({ isDeleted: false })
+            .populate('companyId', 'name')
+            .sort({ createdAt: -1 });
+        res.status(200).json(templates);
+    } catch (err: any) {
+        console.error("Error fetching all templates for admin:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+};
 export const getTemplateById = async (req: Request, res: Response) => {
     try {
         const template = await InvoiceTemplate.findById(req.params.id);
@@ -55,7 +67,12 @@ export const createTemplate = async (req: Request, res: Response) => {
         res.status(201).json(template);
     } catch (err: any) {
         console.error("Error creating template:", err);
-        res.status(500).json({ message: "Server error" });
+        if (err.name === 'ValidationError') {
+            const errors = Object.values(err.errors).map((e: any) => e.message);
+            console.error("Mongoose Validation Errors:", errors);
+            return res.status(400).json({ message: "Validation Error", errors });
+        }
+        res.status(500).json({ message: err.message || "Server error" });
     }
 };
 

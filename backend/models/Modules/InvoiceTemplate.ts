@@ -7,6 +7,7 @@ export interface IInvoiceTemplateLayout {
 }
 
 export interface IInvoiceTemplateItem {
+    [key: string]: any;
     inventoryId?: mongoose.Types.ObjectId;
     description?: string;
     quantity: number;
@@ -47,11 +48,13 @@ const invoiceTemplateSchema = new Schema<IInvoiceTemplate>({
         config: { type: Schema.Types.Mixed }
     }],
     items: [{
-        inventoryId: { type: Schema.Types.ObjectId, ref: 'InventoryItem' },
-        description: String,
-        quantity: { type: Number, default: 1 },
-        price: { type: Number, default: 0 },
-        total: { type: Number, default: 0 }
+        type: new Schema({
+            inventoryId: { type: Schema.Types.ObjectId, ref: 'InventoryItem' },
+            description: String,
+            quantity: { type: Number, default: 1 },
+            price: { type: Number, default: 0 },
+            total: { type: Number, default: 0 }
+        }, { strict: false, _id: false })
     }],
     taxRate: { type: Number, default: 10 },
     notes: { type: String, default: '' },

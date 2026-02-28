@@ -90,6 +90,7 @@ export const updateBroadcastGroup = async (req, res) => {
 export const deleteBroadcastGroup = async (req, res) => {
     try {
         const { id } = req.params;
+        await BroadcastMessage.deleteMany({ groupId: id });
         await BroadcastGroup.findByIdAndDelete(id);
         res.json({ message: 'Group deleted successfully' });
     }
@@ -233,6 +234,8 @@ export const deleteEmployee = async (req, res) => {
             phone: mangledPhone,
             status: 'Terminated'
         }, { new: true });
+        // Remove employee from all BroadcastGroups they are a member of
+        await BroadcastGroup.updateMany({ companyId: employeeToDelete.companyId, members: id }, { $pull: { members: id } });
         res.status(200).json({ message: 'Employee deleted successfully' });
     }
     catch (error) {

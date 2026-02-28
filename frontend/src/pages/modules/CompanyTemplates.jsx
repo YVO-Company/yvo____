@@ -1,0 +1,288 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Edit2, FileText, Check, Copy } from 'lucide-react';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
+import TemplateDesigner from '../../components/invoice-builder/TemplateDesigner';
+import { useAuth } from '../../context/AuthContext';
+
+const TemplateNameInput = ({ value, onChange }) => {
+    const [localName, setLocalName] = useState(value);
+
+    // Sync from props when parent opens a new template
+    useEffect(() => {
+        setLocalName(value);
+    }, [value]);
+
+    return (
+        <input
+            type="text"
+            required
+            className="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50"
+            placeholder="e.g., Creative Layout V1"
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onBlur={() => onChange(localName)}
+        />
+    );
+};
+
+export default function CompanyTemplates() {
+    const { user } = useAuth();
+    const [templates, setTemplates] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [currentTemplate, setCurrentTemplate] = useState(null);
+
+    const [formData, setFormData] = useState({
+        name: '',
+        type: 'COMPANY',
+        themeIdentifier: 'classic',
+        taxRate: 10,
+        notes: '',
+        layout: []
+    });
+
+    useEffect(() => {
+        const companyId = user?.companyId || localStorage.getItem('companyId');
+        if (companyId) {
+            fetchTemplates(companyId);
+        }
+    }, [user]);
+
+    const fetchTemplates = async (companyId) => {
+        try {
+            setLoading(true);
+            const res = await api.get('/invoice-templates', {
+                params: { companyId }
+            });
+            setTemplates(res.data);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to load invoice templates");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOpenModal = (template = null, isDuplicating = false) => {
+        if (template) {
+            setCurrentTemplate(isDuplicating ? null : template);
+            setFormData({
+                name: isDuplicating ? `${template.name} (Copy)` : template.name,
+                type: 'COMPANY',
+                themeIdentifier: template.themeIdentifier || 'classic',
+                taxRate: template.taxRate !== undefined ? template.taxRate : 10,
+                notes: template.notes || '',
+                // If duplicating a global template, ensure we get a deep copy of the layout
+                layout: JSON.parse(JSON.stringify(template.layout || []))
+            });
+        } else {
+            setCurrentTemplate(null);
+            setFormData({
+                name: '',
+                type: 'COMPANY',
+                layout: [
+                    { id: `block_${Date.now()}_1`, type: 'LOGO', config: { x: 40, y: 40, width: 150, height: 80 } },
+                    { id: `block_${Date.now()}_2`, type: 'COMPANY_NAME', config: { x: 40, y: 130, width: 250, height: 30, fontSize: 24, fontWeight: 'bold' } },
+                    { id: `block_${Date.now()}_3`, type: 'COMPANY_DETAILS', config: { x: 40, y: 165, width: 250, height: 100, fontSize: 14 } },
+
+                    { id: `block_${Date.now()}_4`, type: 'INVOICE_TITLE_LABEL', config: { x: 500, y: 40, width: 250, height: 60, fontSize: 48, fontWeight: '900', textAlign: 'right', color: '#e2e8f0', text: 'INVOICE' } },
+                    { id: `block_${Date.now()}_5`, type: 'INVOICE_DETAILS', config: { x: 500, y: 105, width: 250, height: 100, fontSize: 14, textAlign: 'right' } },
+
+                    { id: `block_${Date.now()}_6`, type: 'BILL_TO_LABEL', config: { x: 40, y: 300, width: 200, height: 20, fontSize: 12, fontWeight: 'bold', color: '#94a3b8', text: 'BILL TO' } },
+                    { id: `block_${Date.now()}_7`, type: 'CUSTOMER_DETAILS', config: { x: 40, y: 325, width: 300, height: 100, fontSize: 14 } },
+
+                    { id: `block_${Date.now()}_8`, type: 'ITEMS_TABLE', config: { x: 40, y: 450, width: 710, height: 200, fontSize: 14 } },
+                    { id: `block_${Date.now()}_9`, type: 'TOTALS', config: { x: 450, y: 680, width: 300, height: 150, fontSize: 14 } },
+
+                    { id: `block_${Date.now()}_10`, type: 'NOTES_LABEL', config: { x: 40, y: 850, width: 200, height: 25, fontSize: 14, fontWeight: 'bold', text: 'Terms & Notes' } },
+                    { id: `block_${Date.now()}_11`, type: 'NOTES_CONTENT', config: { x: 40, y: 880, width: 400, height: 80, fontSize: 14, color: '#64748b' } },
+                ]
+            });
+        }
+        setShowModal(true);
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        try {
+            const companyId = user?.companyId || localStorage.getItem('companyId');
+            if (!companyId) {
+                toast.error("Error: Company ID missing.");
+                return;
+            }
+            const payload = { ...formData, companyId };
+
+            if (currentTemplate && currentTemplate.type === 'COMPANY') {
+                await api.patch(`/invoice-templates/${currentTemplate._id}`, payload);
+                toast.success("Template updated");
+            } else {
+                await api.post('/invoice-templates', payload);
+                toast.success("Template created");
+            }
+            setShowModal(false);
+            fetchTemplates(companyId);
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || "Failed to save template");
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this specific custom template?")) return;
+        try {
+            const companyId = user?.companyId || localStorage.getItem('companyId');
+            await api.delete(`/invoice-templates/${id}`);
+            toast.success("Template deleted");
+            if (companyId) fetchTemplates(companyId);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to delete template");
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-xl font-bold text-slate-800">Invoice Templates</h3>
+                    <p className="text-sm text-slate-500 mt-1">Save frequently used invoices to create new ones quickly.</p>
+                </div>
+                <button
+                    onClick={() => handleOpenModal()}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm"
+                >
+                    <Plus size={18} /> Create Custom Template
+                </button>
+            </div>
+
+            {loading ? (
+                <div className="p-10 text-center text-slate-500 animate-pulse">Loading templates...</div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {templates.map(template => (
+                        <div key={template._id} className="bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group relative">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className={`p-2 rounded-lg ${template.type === 'GLOBAL' ? 'bg-slate-100 text-slate-500' : 'bg-indigo-50 text-indigo-600'}`}>
+                                        <FileText size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-800 leading-tight">{template.name}</h4>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
+                                            {template.type === 'GLOBAL' ? 'System Default' : 'Custom Template'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 mb-6">
+                                <div className="flex justify-between text-xs text-slate-500">
+                                    <span>Theme</span>
+                                    <span className="font-medium text-slate-700 capitalize">{template.themeIdentifier || 'Classic'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-500">
+                                    <span>Items Configuration</span>
+                                    <span className="font-medium text-slate-700">{template.items?.length || 0} Default Items</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-500">
+                                    <span>Tax Rate</span>
+                                    <span className="font-medium text-slate-700">{template.taxRate !== undefined ? template.taxRate : 10}%</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => window.location.href = `/dashboard/invoices/new?templateId=${template._id}`}
+                                    className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+                                >
+                                    Use Template
+                                </button>
+
+                                {template.type === 'GLOBAL' ? (
+                                    <button
+                                        onClick={() => handleOpenModal(template, true)}
+                                        className="p-2 border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                        title="Duplicate & Customize"
+                                    >
+                                        <Copy size={20} />
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => handleOpenModal(template)}
+                                            className="p-2 border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                            title="Edit Design"
+                                        >
+                                            <Edit2 size={20} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(template._id)}
+                                            className="p-2 border border-slate-200 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Delete Template"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {templates.length === 0 && (
+                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                            <FileText size={40} className="mx-auto text-slate-300 mb-3" />
+                            <p className="text-slate-500 font-medium">No templates available. Create your first one!</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {showModal && (
+                <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm shrink-0">
+                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                            <FileText size={24} className="text-indigo-600" />
+                            {currentTemplate ? 'Edit Custom Template' : 'New Custom Template'}
+                        </h2>
+                        <div className="flex items-center gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(false)}
+                                className="px-5 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                className="flex items-center gap-2 px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
+                            >
+                                <Check size={18} /> Save Template
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col overflow-hidden bg-slate-100">
+                        <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center gap-6 shrink-0 z-10 shadow-sm">
+                            <div className="w-full max-w-md">
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Template Name</label>
+                                <TemplateNameInput
+                                    value={formData.name}
+                                    onChange={(newName) => setFormData(prev => ({ ...prev, name: newName }))}
+                                />
+                            </div>
+                            <div className="flex-1"></div>
+                        </div>
+
+                        <div className="flex-1 overflow-hidden flex flex-col">
+                            <TemplateDesigner
+                                value={formData.layout}
+                                onChange={(newLayout) => setFormData({ ...formData, layout: newLayout })}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

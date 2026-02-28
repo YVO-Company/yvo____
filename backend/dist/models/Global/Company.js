@@ -35,6 +35,7 @@ const companySchema = new Schema({
             lastSyncAt: Date,
             isRevoked: { type: Boolean, default: false }
         }],
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    invoiceAttributes: [{ type: String }]
 });
 export const Company = mongoose.model('Company', companySchema);

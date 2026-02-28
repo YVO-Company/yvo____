@@ -19,6 +19,18 @@ export const getTemplates = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+export const getAllTemplatesAdmin = async (req, res) => {
+    try {
+        const templates = await InvoiceTemplate.find({ isDeleted: false })
+            .populate('companyId', 'name')
+            .sort({ createdAt: -1 });
+        res.status(200).json(templates);
+    }
+    catch (err) {
+        console.error("Error fetching all templates for admin:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+};
 export const getTemplateById = async (req, res) => {
     try {
         const template = await InvoiceTemplate.findById(req.params.id);
@@ -50,7 +62,12 @@ export const createTemplate = async (req, res) => {
     }
     catch (err) {
         console.error("Error creating template:", err);
-        res.status(500).json({ message: "Server error" });
+        if (err.name === 'ValidationError') {
+            const errors = Object.values(err.errors).map((e) => e.message);
+            console.error("Mongoose Validation Errors:", errors);
+            return res.status(400).json({ message: "Validation Error", errors });
+        }
+        res.status(500).json({ message: err.message || "Server error" });
     }
 };
 export const updateTemplate = async (req, res) => {

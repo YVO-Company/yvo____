@@ -34,18 +34,27 @@ export const getInvoiceById = async (req, res) => {
 // Create invoice
 export const createInvoice = async (req, res) => {
     try {
-        const { companyId, invoiceNumber, customerId, customerName, clientAddress, gstNumber, date, dueDate, items, status } = req.body;
+        const { companyId, invoiceNumber, customerId, customerName, clientAddress, gstNumber, date, dueDate, items, status, templateId, layout, taxRate: providedTaxRate } = req.body;
         if (!companyId || !invoiceNumber) {
             return res.status(400).json({ message: 'Company ID and Invoice Number are required' });
         }
+        // Use tax rate from request or default to 10
+        const taxRate = providedTaxRate !== undefined ? providedTaxRate : 10;
         // Calculate totals
         const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-        const taxTotal = subtotal * 0.1; // Example 10% tax, should be configurable
+        const taxTotal = subtotal * (taxRate / 100);
         const grandTotal = subtotal + taxTotal;
-        // INVENTORY INTEGRATION: Deduct Stock
+        // INVENTORY INTEGRATION & CLEANSING
+        const cleansedItems = (items || []).map((item) => {
+            const newItem = { ...item };
+            if (newItem.inventoryId === "" || newItem.inventoryId === null) {
+                delete newItem.inventoryId;
+            }
+            return newItem;
+        });
         if (status !== 'DRAFT') { // Only deduct if actual sale
-            for (const item of items) {
-                if (item.inventoryId) { // Ensure frontend sends inventoryId
+            for (const item of cleansedItems) {
+                if (item.inventoryId) {
                     const inventoryItem = await (await import('../../models/Modules/InventoryItem.js')).InventoryItem.findById(item.inventoryId);
                     if (inventoryItem) {
                         if (inventoryItem.quantityOnHand < item.quantity) {
@@ -66,36 +75,24 @@ export const createInvoice = async (req, res) => {
             gstNumber,
             date,
             dueDate,
-            items,
+            items: cleansedItems,
             subtotal,
             taxTotal,
             grandTotal,
-            status: status || 'DRAFT'
+            status: status || 'DRAFT',
+            templateId,
+            layout: layout || [],
+            taxRate
         });
         await newInvoice.save();
-        // FINANCE INTEGRATION: Add Revenue
-        if (status === 'PAID') {
-            const Expense = (await import('../../models/Modules/Expense.js')).Expense;
-            const revenueEntry = new Expense({
-                companyId,
-                description: `Invoice Revenue #${invoiceNumber} - ${customerName}`,
-                amount: grandTotal,
-                category: 'Sales',
-                date: date || new Date(),
-                type: 'INCOME', // New ENUM type needed in Expense model? Or just positive expense? Convention: Expense is negative usually, but let's assume type field handles it.
-                // Actually existing Expense model likely only handles expenses.
-                // To avoid complex refactor, I'll store it as 'Income' category or ensure Expense model supports type.
-                // Checking expense model...
-            });
-            // Let's assume we need to update Expense model to support type 'INCOME' if it doesn't already. 
-            // For now, I'll save it. Ideally, Finance should calculate Revenue from Invoices directly, but user asked to "connect".
-            // A better approach: Finance Page calculates Total Revenue by summing PAID invoices.
-            // I will NOT duplicate data into Expenses to avoid sync hell. I will update Finance.jsx to fetch Invoices for Revenue.
-        }
         res.status(201).json(newInvoice);
     }
     catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("CRITICAL ERROR IN CREATE INVOICE:", error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: "Validation error", errors: error.errors });
+        }
+        res.status(500).json({ message: error.message || "Server Error" });
     }
 };
 // Update invoice
@@ -103,13 +100,24 @@ export const updateInvoice = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        // Recalculate totals if items changed
-        if (updates.items) {
-            const subtotal = updates.items.reduce((sum, item) => sum + (item.total || 0), 0);
-            const taxTotal = subtotal * 0.1;
+        // Recalculate totals if items or taxRate changed
+        if (updates.items || updates.taxRate !== undefined) {
+            const taxRate = updates.taxRate !== undefined ? updates.taxRate : 10;
+            // Cleanse items
+            const cleansedItems = (updates.items || []).map((item) => {
+                const newItem = { ...item };
+                if (newItem.inventoryId === "" || newItem.inventoryId === null) {
+                    delete newItem.inventoryId;
+                }
+                return newItem;
+            });
+            const subtotal = cleansedItems.reduce((sum, item) => sum + (item.total || 0), 0);
+            const taxTotal = subtotal * (taxRate / 100);
+            updates.items = cleansedItems;
             updates.subtotal = subtotal;
             updates.taxTotal = taxTotal;
             updates.grandTotal = subtotal + taxTotal;
+            updates.taxRate = taxRate;
         }
         const invoice = await Invoice.findByIdAndUpdate(id, { ...updates, lastModifiedAt: Date.now() }, { new: true });
         if (!invoice) {
@@ -118,7 +126,8 @@ export const updateInvoice = async (req, res) => {
         res.status(200).json(invoice);
     }
     catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("CRITICAL ERROR IN UPDATE INVOICE:", error);
+        res.status(500).json({ message: error.message || "Server Error" });
     }
 };
 // Delete invoice

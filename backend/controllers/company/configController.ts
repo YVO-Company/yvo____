@@ -68,6 +68,7 @@ export const getConfig = async (req: Request, res: Response) => {
                 plan: plan.name,
                 subscriptionStatus: company.subscriptionStatus, // Return actual status
                 invoiceEditPassword: company.invoiceEditPassword,
+                invoiceAttributes: company.invoiceAttributes || [],
 
                 // Profile
                 logo: company.logo,
@@ -132,6 +133,26 @@ export const verifyPassword = async (req: Request, res: Response) => {
         const isValid = company.invoiceEditPassword === password;
 
         res.json({ valid: isValid });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const addInvoiceAttribute = async (req: Request, res: Response) => {
+    try {
+        const { companyId, attribute } = req.body;
+        if (!companyId || !attribute) {
+            return res.status(400).json({ message: 'companyId and attribute are required' });
+        }
+
+        const Company = (await import('../../models/Global/Company.js')).Company;
+        const company = await Company.findByIdAndUpdate(
+            companyId,
+            { $addToSet: { invoiceAttributes: attribute } },
+            { new: true }
+        );
+
+        res.json({ invoiceAttributes: company?.invoiceAttributes || [] });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

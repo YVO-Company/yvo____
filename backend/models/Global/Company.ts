@@ -31,6 +31,7 @@ export interface ICompany extends Document {
     apiKey?: string;
     devices: IDevice[];
     createdAt: Date;
+    invoiceAttributes?: string[];
 }
 
 const companySchema = new Schema<ICompany>({
@@ -69,7 +70,8 @@ const companySchema = new Schema<ICompany>({
         lastSyncAt: Date,
         isRevoked: { type: Boolean, default: false }
     }],
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    invoiceAttributes: [{ type: String }]
 });
 
 export const Company: Model<ICompany> = mongoose.model<ICompany>('Company', companySchema);

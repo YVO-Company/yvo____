@@ -34,6 +34,7 @@ const Payroll = React.lazy(() => import('./pages/modules/Payroll'));
 const Leaves = React.lazy(() => import('./pages/modules/Leaves'));
 const Broadcasts = React.lazy(() => import('./pages/modules/Broadcasts'));
 const BackupAndReports = React.lazy(() => import('./pages/modules/BackupAndReports'));
+const CompanyTemplates = React.lazy(() => import('./pages/modules/CompanyTemplates'));
 
 
 // Employee Pages
@@ -96,6 +97,7 @@ export default function App() {
             <Route path="calendar" element={<CalendarModule />} />
             <Route path="settings" element={<Settings />} />
             <Route path="backup-reports" element={<BackupAndReports />} />
+
 
 
             {/* Super Admin Routes */}
