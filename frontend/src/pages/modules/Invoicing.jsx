@@ -5,8 +5,10 @@ import Modal from '../../components/Modal';
 import InvoiceBuilder from './InvoiceBuilder';
 import CompanyTemplates from './CompanyTemplates';
 import html2pdf from 'html2pdf.js';
+import { useUI } from '../../context/UIContext';
 
 export default function Invoicing() {
+    const { alert, confirm, prompt } = useUI();
     const [searchTerm, setSearchTerm] = useState('');
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -219,7 +221,13 @@ export default function Invoicing() {
     const handleDelete = async (e, id) => {
         e.stopPropagation();
 
-        const inputPass = prompt("Enter Security Password to Delete Invoice:");
+        const inputPass = await prompt(
+            "Security Authorization",
+            "Enter Security Password to Delete Invoice:",
+            "password",
+            "Verify Password",
+            "primary"
+        );
         if (!inputPass) return;
 
         try {
@@ -227,17 +235,23 @@ export default function Invoicing() {
             const res = await api.post('/company/verify-password', { password: inputPass, companyId });
 
             if (!res.data.valid) {
-                alert("Incorrect Password! Access Denied.");
+                await alert("Access Denied", "Incorrect Password! Access Denied.", "error");
                 return;
             }
 
-            if (!window.confirm("Move to trash?")) return;
+            const isConfirmed = await confirm(
+                "Delete Invoice",
+                "Move this invoice to trash?",
+                "Move to Trash",
+                "danger"
+            );
+            if (!isConfirmed) return;
 
             await api.delete(`/invoices/${id}`);
             fetchInvoices();
         } catch (err) {
             console.error(err);
-            alert("Verification failed or deletion failed");
+            alert("Delete Failed", "Verification failed or deletion failed", "error");
         }
     };
 
@@ -247,14 +261,14 @@ export default function Invoicing() {
             await api.patch(`/invoices/${id}`, { isDeleted: false });
             fetchInvoices();
         } catch (err) {
-            alert("Failed to restore");
+            alert("Restore Failed", "Failed to restore invoice", "error");
         }
     };
 
 
-    const handleReturn = (e) => {
+    const handleReturn = async (e) => {
         e.preventDefault();
-        alert(`Return processed for Invoice #${returnConfig.invoiceNumber || 'Unknown'}. Stock adjusted.`);
+        await alert("Return Processed", `Return processed for Invoice #${returnConfig.invoiceNumber || 'Unknown'}. Stock adjusted.`, "success");
         setShowReturnModal(false);
     };
 

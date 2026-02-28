@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Save, Download, Trash2, Printer, Search, Lock, Unlock, ChevronUp, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useUI } from '../../context/UIContext';
 import api from '../../services/api';
 import InvoiceRenderer from '../../components/invoice-builder/InvoiceRenderer';
 
 export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
     const navigate = useNavigate();
     const { id: paramId } = useParams();
+    const { alert, confirm, prompt } = useUI();
     const [searchParams] = useSearchParams();
     const templateIdFromUrl = searchParams.get('templateId');
     const id = propId || paramId; // Use prop if available (Drawer), else param
@@ -119,7 +121,13 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
     }, [isEditing, id]);
 
     const handleUnlockEdit = async () => {
-        const inputPass = prompt("Enter Invoice Security Password to Edit:");
+        const inputPass = await prompt(
+            "Security Authorization",
+            "Enter Invoice Security Password to Edit:",
+            "password",
+            "Unlock Editor",
+            "primary"
+        );
         if (!inputPass) return;
 
         try {
@@ -128,11 +136,11 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
             if (res.data.valid) {
                 setIsEditing(true);
             } else {
-                alert("Incorrect Password!");
+                alert("Security Error", "Incorrect security password provided. Access denied.", "error");
             }
         } catch (err) {
             console.error(err);
-            alert("Verification failed");
+            alert("System Error", "Verification service is temporarily unavailable.", "error");
         }
     };
 
@@ -179,26 +187,20 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
         setInvoiceData({ ...invoiceData, items: newItems });
     };
 
-    const moveColumn = (index, direction) => {
-        if (!activeLayout) return;
-        const newLayout = [...activeLayout];
-        const tableIdx = newLayout.findIndex(b => b.type === 'ITEMS_TABLE');
-        if (tableIdx === -1) return;
-
-        const tableBlock = { ...newLayout[tableIdx] };
-        // Use current tableColumns if no config columns exist yet
-        const columns = [...(tableBlock.config?.columns || tableColumns)];
-
-        const newIdx = index + direction;
-        if (newIdx < 0 || newIdx >= columns.length) return;
-
-        // Swap
-        [columns[index], columns[newIdx]] = [columns[newIdx], columns[index]];
-
-        tableBlock.config = { ...tableBlock.config, columns };
-        newLayout[tableIdx] = tableBlock;
-        setActiveLayout(newLayout);
+    const handlePrint = () => {
+        window.print();
     };
+
+    // Determine dynamic columns based on the loaded template layout
+    const itemsTableBlock = activeLayout?.find(b => b.type === 'ITEMS_TABLE');
+    const tableColumns = itemsTableBlock?.config?.columns || [
+        { id: 'col_desc', key: 'description', label: 'Item Description', align: 'left' },
+        { id: 'col_qty', key: 'quantity', label: 'Qty', align: 'center' },
+        { id: 'col_price', key: 'price', label: 'Price', align: 'right', isCurrency: true },
+        { id: 'col_total', key: 'total', label: 'Total', align: 'right', isCurrency: true }
+    ];
+
+
 
     const calculateSubtotal = () => invoiceData.items.reduce((sum, item) => sum + item.total, 0);
     const tax = calculateSubtotal() * (taxRate / 100);
@@ -261,7 +263,7 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                 await api.post('/invoices', payload); // Create new
             }
 
-            alert(`Invoice ${status === 'DRAFT' ? 'saved' : 'created'} successfully!`);
+            await alert("Invoice Created", `Invoice ${status === 'DRAFT' ? 'saved' : 'created'} successfully!`, "success");
             if (onClose) {
                 onClose(); // Close drawer if applicable
                 window.location.reload(); // Refresh to show updates (simple fix)
@@ -270,12 +272,15 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
             }
         } catch (err) {
             console.error(err);
-            alert("Failed to save invoice: " + (err.response?.data?.message || err.message));
+            alert("Save Failed", (err.response?.data?.message || err.message), "error");
         }
     };
 
     const handleSaveAsTemplate = async () => {
-        if (!templateName) return alert("Please enter a template name");
+        if (!templateName) {
+            alert("Template Error", "Please enter a valid name for this template.", "error");
+            return;
+        }
         try {
             const companyId = localStorage.getItem('companyId');
             const payload = {
@@ -287,13 +292,13 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                 layout: activeLayout // Saving the custom design
             };
             await api.post('/invoice-templates', payload);
-            alert("Template saved successfully!");
+            alert("Template Saved", "This invoice structure has been saved to your company templates.", "success");
             setShowTemplateModal(false);
             setTemplateName('');
             fetchTemplates();
         } catch (err) {
             console.error(err);
-            alert("Failed to save template: " + (err.response?.data?.message || err.message));
+            alert("Template Save Failed", (err.response?.data?.message || err.message), "error");
         }
     };
 
@@ -310,18 +315,7 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
 
-    // Determine dynamic columns based on the loaded template layout
-    const itemsTableBlock = activeLayout?.find(b => b.type === 'ITEMS_TABLE');
-    const tableColumns = itemsTableBlock?.config?.columns || [
-        { id: 'col_desc', key: 'description', label: 'Item Description', align: 'left' },
-        { id: 'col_qty', key: 'quantity', label: 'Qty', align: 'center' },
-        { id: 'col_price', key: 'price', label: 'Price', align: 'right', isCurrency: true },
-        { id: 'col_total', key: 'total', label: 'Total', align: 'right', isCurrency: true }
-    ];
 
     return (
         <div className="flex flex-col lg:flex-row w-full h-[calc(90vh-70px)] overflow-hidden bg-slate-50 relative rounded-b-2xl">
@@ -494,128 +488,7 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                             </div>
                         )}
 
-                        {/* COLUMN MANAGEMENT */}
-                        {isEditing && (
-                            <div className="mt-8 border-t border-slate-200 pt-6">
-                                <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                    <Search size={18} /> Manage Table Columns
-                                </h3>
-                                <div className="space-y-2">
-                                    {tableColumns.map((col, idx) => (
-                                        <div key={col.id} className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100 group">
-                                            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => moveColumn(idx, -1)}
-                                                    disabled={idx === 0}
-                                                    className="p-0.5 hover:bg-white rounded text-slate-400 disabled:opacity-20"
-                                                >
-                                                    <ChevronUp size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => moveColumn(idx, 1)}
-                                                    disabled={idx === tableColumns.length - 1}
-                                                    className="p-0.5 hover:bg-white rounded text-slate-400 disabled:opacity-20"
-                                                >
-                                                    <ChevronDown size={14} />
-                                                </button>
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{col.key}</div>
-                                                    <div className="flex gap-1">
-                                                        <button
-                                                            onClick={() => {
-                                                                const newLayout = [...activeLayout];
-                                                                const tableIdx = newLayout.findIndex(b => b.type === 'ITEMS_TABLE');
-                                                                if (tableIdx === -1) return;
-                                                                const tableBlock = { ...newLayout[tableIdx] };
-                                                                const cols = [...(tableBlock.config?.columns || tableColumns)];
-                                                                cols[idx] = { ...cols[idx], align: cols[idx].align === 'left' ? 'center' : cols[idx].align === 'center' ? 'right' : 'left' };
-                                                                tableBlock.config = { ...tableBlock.config, columns: cols };
-                                                                newLayout[tableIdx] = tableBlock;
-                                                                setActiveLayout(newLayout);
-                                                            }}
-                                                            className="text-[9px] px-1 bg-white border border-slate-200 rounded text-slate-500 hover:bg-slate-50"
-                                                        >
-                                                            {col.align?.toUpperCase() || 'L'}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const newLayout = [...activeLayout];
-                                                                const tableIdx = newLayout.findIndex(b => b.type === 'ITEMS_TABLE');
-                                                                if (tableIdx === -1) return;
-                                                                const tableBlock = { ...newLayout[tableIdx] };
-                                                                const cols = [...(tableBlock.config?.columns || tableColumns)];
-                                                                cols[idx] = { ...cols[idx], isCurrency: !cols[idx].isCurrency };
-                                                                tableBlock.config = { ...tableBlock.config, columns: cols };
-                                                                newLayout[tableIdx] = tableBlock;
-                                                                setActiveLayout(newLayout);
-                                                            }}
-                                                            className={`text-[9px] px-1 border rounded ${col.isCurrency ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
-                                                        >
-                                                            ₹
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    className="w-full bg-white/50 border border-slate-200/50 rounded px-2 py-1 text-sm font-semibold focus:ring-1 focus:ring-indigo-500 outline-none p-0 text-slate-700"
-                                                    value={col.label}
-                                                    onChange={(e) => {
-                                                        const newLayout = [...activeLayout];
-                                                        const tableIdx = newLayout.findIndex(b => b.type === 'ITEMS_TABLE');
-                                                        if (tableIdx === -1) return;
-                                                        const tableBlock = { ...newLayout[tableIdx] };
-                                                        const cols = [...(tableBlock.config?.columns || tableColumns)];
-                                                        cols[idx] = { ...cols[idx], label: e.target.value };
-                                                        tableBlock.config = { ...tableBlock.config, columns: cols };
-                                                        newLayout[tableIdx] = tableBlock;
-                                                        setActiveLayout(newLayout);
-                                                    }}
-                                                />
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    const newLayout = [...activeLayout];
-                                                    const tableIdx = newLayout.findIndex(b => b.type === 'ITEMS_TABLE');
-                                                    if (tableIdx === -1) return;
-                                                    const tableBlock = { ...newLayout[tableIdx] };
-                                                    const cols = (tableBlock.config?.columns || tableColumns).filter((_, i) => i !== idx);
-                                                    tableBlock.config = { ...tableBlock.config, columns: cols };
-                                                    newLayout[tableIdx] = tableBlock;
-                                                    setActiveLayout(newLayout);
-                                                }}
-                                                className="p-1 text-red-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        const newLayout = [...activeLayout];
-                                        const tableIdx = newLayout.findIndex(b => b.type === 'ITEMS_TABLE');
-                                        if (tableIdx === -1) return;
-                                        const tableBlock = { ...newLayout[tableIdx] };
-                                        const cols = [...(tableBlock.config?.columns || tableColumns)];
-                                        const uniqueId = Date.now();
-                                        cols.push({
-                                            id: `col_${uniqueId}`,
-                                            key: `custom_${uniqueId}`,
-                                            label: 'New Column',
-                                            align: 'left'
-                                        });
-                                        tableBlock.config = { ...tableBlock.config, columns: cols };
-                                        newLayout[tableIdx] = tableBlock;
-                                        setActiveLayout(newLayout);
-                                    }}
-                                    className="w-full py-2 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-xs font-bold hover:bg-slate-50 hover:border-slate-300 mt-4"
-                                >
-                                    + Add New Column
-                                </button>
-                            </div>
-                        )}
+
                     </div>
 
                     <div className="mt-8">

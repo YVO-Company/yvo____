@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Filter, Search } from 'lucide-react';
 import api from '../../services/api';
+import { useUI } from '../../context/UIContext';
 
 export default function Leaves() {
+    const { alert, prompt } = useUI();
     const [leaves, setLeaves] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('Pending'); // Pending, Approved, Rejected, All
@@ -35,7 +37,13 @@ export default function Leaves() {
         // Optional: Prompt for remark on rejection
         let remark = currentRemark || '';
         if (status === 'Rejected') {
-            const r = prompt("Reason for rejection (optional):");
+            const r = await prompt(
+                "Reject Leave",
+                "Reason for rejection (optional):",
+                "text",
+                "Reject",
+                "danger"
+            );
             if (r === null) return; // Cancelled
             remark = r;
         }
@@ -44,7 +52,7 @@ export default function Leaves() {
             await api.patch(`/employees/leaves/${id}`, { status, remark });
             fetchLeaves(); // Refresh
         } catch (err) {
-            alert('Failed to update status');
+            await alert('Status Update Failed', 'Failed to update leave status.', 'error');
         }
     };
 

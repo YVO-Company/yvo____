@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Rnd } from 'react-rnd';
-import { X, Type, Image, Hash, DollarSign, FileText, Settings, AlignLeft, Grid } from 'lucide-react';
+import { X, Type, Image, Hash, DollarSign, FileText, Settings, AlignLeft, Grid, ChevronUp, ChevronDown } from 'lucide-react';
 import { renderBlock } from './InvoiceRenderer';
 
 const mmToPx = 3.7795275591; // 1mm = ~3.78px for screen resolution matching A4
@@ -136,34 +136,59 @@ export default function TemplateDesigner({ value, onChange }) {
         setLayout(layout.map(b => b.id === id ? { ...b, config: { ...b.config, [key]: val } } : b));
     };
 
+    const moveTableColumn = (blockId, index, direction) => {
+        const block = layout.find(b => b.id === blockId);
+        if (!block || !block.config?.columns) return;
+
+        const newCols = [...block.config.columns];
+        const newIdx = index + direction;
+        if (newIdx < 0 || newIdx >= newCols.length) return;
+
+        // Swap
+        [newCols[index], newCols[newIdx]] = [newCols[newIdx], newCols[index]];
+        updateBlockConfig(blockId, 'columns', newCols);
+    };
+
     const selectedBlock = layout.find(b => b.id === selectedBlockId);
 
     return (
         <div className="flex w-full h-full overflow-hidden bg-slate-50 relative">
 
             {/* LEFT SIDEBAR: Add Elements */}
-            <div className="sidebar-controls w-64 bg-white border-r border-slate-200 p-4 flex flex-col shrink-0 z-10 shadow-sm relative">
-                <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider">Drag Elements</h3>
+            <div className="sidebar-controls w-72 bg-white/80 backdrop-blur-md border-r border-slate-200 p-6 flex flex-col shrink-0 z-20 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-600/10"></div>
+                <div className="flex items-center gap-2 mb-6">
+                    <div className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm">
+                        <Plus size={16} strokeWidth={3} />
+                    </div>
+                    <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-[0.2em]">Components</h3>
+                </div>
 
-                <div className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2.5 flex-1 overflow-y-auto pr-2 custom-scrollbar -mr-2">
                     {AVAILABLE_WIDGETS.map(widget => (
                         <button
                             key={widget.type}
                             type="button"
                             onClick={() => addWidget(widget)}
-                            className="w-full flex items-center gap-3 p-3 text-sm text-slate-700 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg transition-colors text-left"
+                            className="group w-full flex items-center gap-3.5 p-3.5 text-sm font-semibold text-slate-600 bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 hover:border-indigo-600 rounded-xl transition-all duration-300 shadow-sm hover:shadow-indigo-200 hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
                         >
-                            <span className="text-slate-400 group-hover:text-indigo-500">{widget.icon}</span>
+                            <div className="p-2 bg-slate-50 group-hover:bg-white/20 rounded-lg text-slate-400 group-hover:text-white transition-colors">
+                                {widget.icon}
+                            </div>
                             {widget.label}
                         </button>
                     ))}
                 </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-medium text-center uppercase tracking-widest">Select to add to canvas</p>
+                </div>
             </div>
 
             {/* MIDDLE: Canvas Area (A4 Paper) */}
-            <div className="flex-1 overflow-auto bg-slate-200/50 p-8 flex justify-center items-start relative pb-32">
+            <div className="flex-1 overflow-auto bg-slate-200/40 p-12 flex justify-center items-start relative pb-32 scroll-smooth">
                 <div
-                    className="bg-white shadow-xl relative ring-1 ring-slate-200 select-none overflow-hidden"
+                    className="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative ring-1 ring-slate-200 select-none overflow-hidden transition-all duration-500"
                     style={{ width: `${A4_WIDTH_PX}px`, height: `${A4_HEIGHT_PX}px`, minHeight: `${A4_HEIGHT_PX}px`, minWidth: `${A4_WIDTH_PX}px` }}
                 >
                     {/* Visual Grid for Alignment (Development aid, won't print) */}
@@ -225,7 +250,8 @@ export default function TemplateDesigner({ value, onChange }) {
             </div>
 
             {/* RIGHT SIDEBAR: Properties Inspector */}
-            <div className="sidebar-controls w-80 bg-white border-l border-slate-200 p-6 flex flex-col shrink-0 z-10 shadow-sm overflow-y-auto custom-scrollbar">
+            <div className="sidebar-controls w-80 bg-white/95 backdrop-blur-md border-l border-slate-200 p-8 flex flex-col shrink-0 z-20 shadow-xl overflow-y-auto custom-scrollbar relative">
+                <div className="absolute top-0 right-0 w-1 h-full bg-indigo-600/10"></div>
                 {selectedBlock ? (
                     <>
                         <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
@@ -300,15 +326,34 @@ export default function TemplateDesigner({ value, onChange }) {
                                     <div className="space-y-3">
                                         {(selectedBlock.config.columns || []).map((col, idx) => (
                                             <div key={col.id || idx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs flex flex-col gap-2 relative group">
-                                                <button
-                                                    onClick={() => {
-                                                        const newCols = selectedBlock.config.columns.filter((_, i) => i !== idx);
-                                                        updateBlockConfig(selectedBlock.id, 'columns', newCols);
-                                                    }}
-                                                    className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
-                                                >
-                                                    <X size={12} />
-                                                </button>
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{col.key}</div>
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => moveTableColumn(selectedBlock.id, idx, -1)}
+                                                            disabled={idx === 0}
+                                                            className="p-1 hover:bg-white rounded text-slate-400 disabled:opacity-20 border border-slate-100"
+                                                        >
+                                                            <ChevronUp size={12} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => moveTableColumn(selectedBlock.id, idx, 1)}
+                                                            disabled={idx === (selectedBlock.config.columns?.length || 0) - 1}
+                                                            className="p-1 hover:bg-white rounded text-slate-400 disabled:opacity-20 border border-slate-100"
+                                                        >
+                                                            <ChevronDown size={12} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                const newCols = selectedBlock.config.columns.filter((_, i) => i !== idx);
+                                                                updateBlockConfig(selectedBlock.id, 'columns', newCols);
+                                                            }}
+                                                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
+                                                </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
                                                         <label className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">Header Label</label>
@@ -323,33 +368,33 @@ export default function TemplateDesigner({ value, onChange }) {
                                                             }}
                                                         />
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">Data Key</label>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full p-1.5 border border-slate-200 rounded font-mono focus:ring-1 focus:ring-indigo-500 outline-none"
-                                                            value={col.key}
-                                                            onChange={(e) => {
-                                                                const newCols = [...(selectedBlock.config.columns || [])];
-                                                                newCols[idx] = { ...col, key: e.target.value };
-                                                                updateBlockConfig(selectedBlock.id, 'columns', newCols);
-                                                            }}
-                                                        />
-                                                    </div>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-1">
-                                                    <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="rounded text-indigo-600 focus:ring-indigo-500"
-                                                            checked={!!col.isCurrency}
-                                                            onChange={(e) => {
-                                                                const newCols = [...(selectedBlock.config.columns || [])];
-                                                                newCols[idx] = { ...col, isCurrency: e.target.checked };
-                                                                updateBlockConfig(selectedBlock.id, 'columns', newCols);
-                                                            }}
-                                                        /> Currency Format
-                                                    </label>
+                                                    <div className="flex gap-1">
+                                                        {['left', 'center', 'right'].map(align => (
+                                                            <button
+                                                                key={align}
+                                                                onClick={() => {
+                                                                    const newCols = [...(selectedBlock.config.columns || [])];
+                                                                    newCols[idx] = { ...col, align };
+                                                                    updateBlockConfig(selectedBlock.id, 'columns', newCols);
+                                                                }}
+                                                                className={`px-1.5 py-1 border rounded text-[10px] uppercase font-bold ${col.align === align ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                                            >
+                                                                {align[0]}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newCols = [...(selectedBlock.config.columns || [])];
+                                                            newCols[idx] = { ...col, isCurrency: !col.isCurrency };
+                                                            updateBlockConfig(selectedBlock.id, 'columns', newCols);
+                                                        }}
+                                                        className={`px-2 py-1 border rounded text-[10px] font-bold ${col.isCurrency ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                                    >
+                                                        ₹ Currency
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
@@ -363,7 +408,14 @@ export default function TemplateDesigner({ value, onChange }) {
                                                 { id: 'col_total', key: 'total', label: 'Total', align: 'right', isCurrency: true, width: '120px' }
                                             ];
                                             const currentConfigCols = selectedBlock.config.columns || fallbackCols;
-                                            const newCols = [...currentConfigCols, { id: `col_${Date.now()}`, key: 'custom_field', label: 'New Column', align: 'left', width: 'auto' }];
+                                            const uniqueId = Date.now();
+                                            const newCols = [...currentConfigCols, {
+                                                id: `col_${uniqueId}`,
+                                                key: `custom_${uniqueId}`,
+                                                label: 'New Column',
+                                                align: 'left',
+                                                width: 'auto'
+                                            }];
                                             updateBlockConfig(selectedBlock.id, 'columns', newCols);
                                         }}
                                         className="w-full py-2 text-xs font-bold border-2 border-dashed border-indigo-200 text-indigo-600 rounded-lg mt-3 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"

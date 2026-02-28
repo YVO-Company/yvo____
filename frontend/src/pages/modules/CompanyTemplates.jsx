@@ -4,6 +4,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import TemplateDesigner from '../../components/invoice-builder/TemplateDesigner';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIContext';
 
 const TemplateNameInput = ({ value, onChange }) => {
     const [localName, setLocalName] = useState(value);
@@ -28,6 +29,7 @@ const TemplateNameInput = ({ value, onChange }) => {
 
 export default function CompanyTemplates() {
     const { user } = useAuth();
+    const { confirm } = useUI();
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -39,7 +41,8 @@ export default function CompanyTemplates() {
         themeIdentifier: 'classic',
         taxRate: 10,
         notes: '',
-        layout: []
+        layout: [],
+        items: []
     });
 
     useEffect(() => {
@@ -73,8 +76,9 @@ export default function CompanyTemplates() {
                 themeIdentifier: template.themeIdentifier || 'classic',
                 taxRate: template.taxRate !== undefined ? template.taxRate : 10,
                 notes: template.notes || '',
-                // If duplicating a global template, ensure we get a deep copy of the layout
-                layout: JSON.parse(JSON.stringify(template.layout || []))
+                // If duplicating a global template, ensure we get a deep copy of the layout and items
+                layout: JSON.parse(JSON.stringify(template.layout || [])),
+                items: JSON.parse(JSON.stringify(template.items || []))
             });
         } else {
             setCurrentTemplate(null);
@@ -97,7 +101,8 @@ export default function CompanyTemplates() {
 
                     { id: `block_${Date.now()}_10`, type: 'NOTES_LABEL', config: { x: 40, y: 850, width: 200, height: 25, fontSize: 14, fontWeight: 'bold', text: 'Terms & Notes' } },
                     { id: `block_${Date.now()}_11`, type: 'NOTES_CONTENT', config: { x: 40, y: 880, width: 400, height: 80, fontSize: 14, color: '#64748b' } },
-                ]
+                ],
+                items: []
             });
         }
         setShowModal(true);
@@ -129,7 +134,13 @@ export default function CompanyTemplates() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this specific custom template?")) return;
+        const confirmed = await confirm(
+            "Delete Template",
+            "Are you sure you want to permanently delete this custom layout? This action cannot be undone.",
+            "Delete Permanently",
+            "danger"
+        );
+        if (!confirmed) return;
         try {
             const companyId = user?.companyId || localStorage.getItem('companyId');
             await api.delete(`/invoice-templates/${id}`);
@@ -238,47 +249,76 @@ export default function CompanyTemplates() {
             )}
 
             {showModal && (
-                <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm shrink-0">
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                            <FileText size={24} className="text-indigo-600" />
-                            {currentTemplate ? 'Edit Custom Template' : 'New Custom Template'}
-                        </h2>
-                        <div className="flex items-center gap-4">
-                            <button
-                                type="button"
-                                onClick={() => setShowModal(false)}
-                                className="px-5 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                className="flex items-center gap-2 px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
-                            >
-                                <Check size={18} /> Save Template
-                            </button>
-                        </div>
-                    </div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10 transition-all duration-300">
+                    {/* Backdrop with Blur */}
+                    <div
+                        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity duration-300"
+                        onClick={() => setShowModal(false)}
+                    ></div>
 
-                    <div className="flex-1 flex flex-col overflow-hidden bg-slate-100">
-                        <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center gap-6 shrink-0 z-10 shadow-sm">
-                            <div className="w-full max-w-md">
-                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Template Name</label>
-                                <TemplateNameInput
-                                    value={formData.name}
-                                    onChange={(newName) => setFormData(prev => ({ ...prev, name: newName }))}
+                    {/* Modal Container */}
+                    <div className="relative w-full h-full bg-slate-50 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300 border border-white/20">
+                        {/* Premium Header */}
+                        <div className="px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-slate-200 flex justify-between items-center z-10 shadow-sm shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shadow-inner">
+                                    <FileText size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">
+                                        {currentTemplate ? 'Refine Template' : 'Design Custom Template'}
+                                    </h2>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest leading-none mt-1">
+                                        {currentTemplate ? 'Modifying existing layout' : 'Creating new visual identity'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSave}
+                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:shadow-indigo-200 hover:shadow-lg transition-all active:scale-95 shadow-md group"
+                                >
+                                    <Check size={18} className="group-hover:scale-110 transition-transform" />
+                                    Save Template
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Designer Workspace */}
+                        <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/50">
+                            {/* Toolbar/Name Area */}
+                            <div className="bg-white/50 backdrop-blur-sm px-6 py-4 border-b border-slate-200 flex items-center gap-6 shrink-0 z-10">
+                                <div className="w-full max-w-sm">
+                                    <label className="block text-[10px] font-black text-slate-400 mb-1.5 uppercase tracking-widest">Global Template Name</label>
+                                    <div className="relative group">
+                                        <TemplateNameInput
+                                            value={formData.name}
+                                            onChange={(newName) => setFormData(prev => ({ ...prev, name: newName }))}
+                                        />
+                                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-300 group-focus-within:text-indigo-400 transition-colors">
+                                            <Edit2 size={14} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex-1"></div>
+                            </div>
+
+                            {/* Canvas Background and Main Designer */}
+                            <div className="flex-1 overflow-hidden flex flex-col relative">
+                                <TemplateDesigner
+                                    value={formData.layout}
+                                    onChange={(newLayout) => setFormData({ ...formData, layout: newLayout })}
                                 />
                             </div>
-                            <div className="flex-1"></div>
-                        </div>
-
-                        <div className="flex-1 overflow-hidden flex flex-col">
-                            <TemplateDesigner
-                                value={formData.layout}
-                                onChange={(newLayout) => setFormData({ ...formData, layout: newLayout })}
-                            />
                         </div>
                     </div>
                 </div>
