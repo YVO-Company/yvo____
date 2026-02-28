@@ -83,6 +83,7 @@ export default function DashboardLayout() {
                         <SidebarItem icon={<Building2 size={20} />} label="Companies" href="/dashboard/companies" active={location.pathname === '/dashboard/companies'} />
                         <SidebarItem icon={<Users size={20} />} label="Manage Clients" href="/dashboard/clients" active={location.pathname === '/dashboard/clients'} />
                         <SidebarItem icon={<Ticket size={20} />} label="Plans & Feature Flags" href="/dashboard/plans" active={location.pathname === '/dashboard/plans'} />
+                        <SidebarItem icon={<FileText size={20} />} label="Invoice Templates" href="/dashboard/templates" active={location.pathname === '/dashboard/templates'} />
 
                         <div className="pt-4 pb-2">
                             <div className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">System</div>

@@ -21,6 +21,7 @@ const CreateCompany = React.lazy(() => import('./pages/super-admin/CreateCompany
 const Plans = React.lazy(() => import('./pages/super-admin/Plans'));
 const ManageClients = React.lazy(() => import('./pages/super-admin/ManageClients'));
 const SyncControl = React.lazy(() => import('./pages/super-admin/SyncControl'));
+const InvoiceThemes = React.lazy(() => import('./pages/super-admin/InvoiceThemes'));
 const Finance = React.lazy(() => import('./pages/modules/Finance'));
 const Invoicing = React.lazy(() => import('./pages/modules/Invoicing'));
 const Inventory = React.lazy(() => import('./pages/modules/Inventory'));
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="companies" element={<Companies />} />
             <Route path="companies/new" element={<React.Suspense fallback={<div>Loading...</div>}><CreateCompany /></React.Suspense>} />
             <Route path="plans" element={<Plans />} />
+            <Route path="templates" element={<InvoiceThemes />} />
             <Route path="sync" element={<SyncControl />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="invoices/new" element={<InvoiceBuilder />} />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Save, Download, Trash2, Printer, Search, Lock, Unlock } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
+import InvoiceRenderer from '../../components/invoice-builder/InvoiceRenderer';
 
 export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
     const navigate = useNavigate();
@@ -13,9 +14,13 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
     const [isEditing, setIsEditing] = useState(!id);
     const [securityPassword, setSecurityPassword] = useState('');
     const [companyConfig, setCompanyConfig] = useState(null);
+    const [templates, setTemplates] = useState([]);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [templateName, setTemplateName] = useState('');
 
     // Tax Rate State (Default 10%)
     const [taxRate, setTaxRate] = useState(10);
+    const [activeLayout, setActiveLayout] = useState(null); // The loaded template's layout array
 
     const [invoiceData, setInvoiceData] = useState({
         invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
@@ -32,8 +37,19 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
     useEffect(() => {
         fetchInventory();
         fetchConfig();
+        fetchTemplates();
         if (id) fetchInvoice(id);
     }, [id]);
+
+    const fetchTemplates = async () => {
+        try {
+            const companyId = localStorage.getItem('companyId');
+            const res = await api.get('/invoice-templates', { params: { companyId } });
+            setTemplates(res.data);
+        } catch (e) {
+            console.error("Failed to fetch templates");
+        }
+    };
 
     const fetchConfig = async () => {
         try {
@@ -142,6 +158,41 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
         }
     };
 
+    const handleSaveAsTemplate = async () => {
+        if (!templateName) return alert("Please enter a template name");
+        try {
+            const companyId = localStorage.getItem('companyId');
+            const payload = {
+                companyId,
+                name: templateName,
+                type: 'COMPANY',
+                items: invoiceData.items.map(i => ({ description: i.description, quantity: i.quantity, price: i.price, total: i.total })),
+                taxRate
+            };
+            await api.post('/invoice-templates', payload);
+            alert("Template saved successfully!");
+            setShowTemplateModal(false);
+            setTemplateName('');
+            fetchTemplates();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to save template");
+        }
+    };
+
+    const loadTemplate = (templateId) => {
+        if (!templateId) return;
+        const template = templates.find(t => t._id === templateId);
+        if (template) {
+            setInvoiceData(prev => ({
+                ...prev,
+                items: template.items && template.items.length > 0 ? template.items.map(i => ({ ...i, inventoryId: '' })) : prev.items
+            }));
+            setTaxRate(template.taxRate !== undefined ? template.taxRate : 10);
+            setActiveLayout(template.layout && template.layout.length > 0 ? template.layout : null);
+        }
+    };
+
     const handlePrint = () => {
         window.print();
     };
@@ -161,6 +212,20 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                             <Unlock size={14} /> Editing Mode
                         </span>
                     )}
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Load from Template</label>
+                    <select
+                        className="w-full p-2 border rounded"
+                        onChange={(e) => loadTemplate(e.target.value)}
+                        disabled={!isEditing}
+                    >
+                        <option value="">-- Select a Template --</option>
+                        {templates.map(t => (
+                            <option key={t._id} value={t._id}>{t.name} {t.type === 'GLOBAL' ? '(Global)' : ''}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="space-y-4">
@@ -311,6 +376,11 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                 </div>
 
                 <div className="mt-8 space-y-3 pt-6 border-t border-slate-200">
+                    {isEditing && (
+                        <button onClick={() => setShowTemplateModal(true)} className="w-full flex justify-center items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-indigo-600 font-medium hover:bg-indigo-50">
+                            <Save size={18} /> Save as Template
+                        </button>
+                    )}
                     <button onClick={() => handleSave('DRAFT')} className="w-full flex justify-center items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg font-medium hover:bg-slate-50">
                         <Save size={18} /> Save as Draft
                     </button>
@@ -320,140 +390,38 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                 </div>
             </div>
 
-            {/* PREVIEW AREA (The Paper Invoice) */}
-            <div className="flex-1 bg-slate-100 rounded-xl p-8 overflow-y-auto flex flex-col items-center print:bg-white print:p-0 print:block">
-                <div className="w-full max-w-[210mm] bg-white shadow-lg min-h-[297mm] text-slate-900 print:shadow-none print:w-full relative overflow-hidden">
-
-                    {/* Top Accent Bar */}
-                    <div className="h-4 w-full bg-indigo-900"></div>
-
-                    <div className="p-[10mm]">
-                        {/* HEADER */}
-                        <div className="flex justify-between items-start mb-10">
-                            <div className="flex flex-col gap-4">
-                                {companyConfig?.logo ? (
-                                    <img src={companyConfig.logo} alt="Company Logo" className="h-20 object-contain object-left" />
-                                ) : (
-                                    <div className="h-20 w-40 bg-slate-100 flex items-center justify-center text-slate-400 text-xs rounded border border-slate-200">
-                                        No Logo Uploaded
-                                    </div>
-                                )}
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900">{companyConfig?.name || 'Your Company Name'}</h2>
-                                    <div className="text-sm text-slate-500 leading-relaxed mt-1">
-                                        {companyConfig?.address || 'Your Business Address'}<br />
-                                        {companyConfig?.email && <>{companyConfig.email}<br /></>}
-                                        {companyConfig?.phone && <>{companyConfig.phone}<br /></>}
-                                        {companyConfig?.website && <>{companyConfig.website}</>}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="text-right">
-                                <h1 className="text-5xl font-black text-slate-100 tracking-tighter mb-4">INVOICE</h1>
-                                <div className="inline-block text-left bg-slate-50 border border-slate-100 p-4 rounded-lg min-w-[200px]">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-xs font-bold text-slate-400 uppercase">Invoice #</span>
-                                        <span className="font-mono font-bold text-slate-800">{invoiceData.invoiceNumber}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-xs font-bold text-slate-400 uppercase">Date</span>
-                                        <span className="text-sm font-medium text-slate-700">{invoiceData.date}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs font-bold text-slate-400 uppercase">Status</span>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${invoiceData.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                            {invoiceData.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* BILL TO / SHIP TO */}
-                        <div className="flex gap-12 mb-12 border-t border-b border-slate-100 py-8">
-                            <div className="flex-1">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Bill To</span>
-                                <h3 className="font-bold text-lg text-slate-800">{invoiceData.customerName || 'Customer Name'}</h3>
-                                <p className="text-sm text-slate-500 mt-1 whitespace-pre-wrap leading-relaxed">
-                                    {invoiceData.clientAddress || 'Client Address...'}
-                                </p>
-                                {invoiceData.gstNumber && (
-                                    <div className="mt-3 text-sm flex items-center gap-2">
-                                        <span className="font-semibold text-slate-600">GSTIN:</span>
-                                        <span className="font-mono text-slate-800">{invoiceData.gstNumber}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                {invoiceData.dueDate && (
-                                    <>
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Payment Due</span>
-                                        <div className="font-medium text-slate-800">{invoiceData.dueDate}</div>
-                                        <p className="text-xs text-slate-400 mt-1">Please pay by due date to avoid late fees.</p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* TABLE */}
-                        <table className="w-full mb-8">
-                            <thead>
-                                <tr className="bg-slate-800 text-white">
-                                    <th className="py-3 px-4 text-left font-semibold text-sm rounded-l-lg">Item Description</th>
-                                    <th className="py-3 px-4 text-center font-semibold text-sm w-24">Qty</th>
-                                    <th className="py-3 px-4 text-right font-semibold text-sm w-32">Price</th>
-                                    <th className="py-3 px-4 text-right font-semibold text-sm w-32 rounded-r-lg">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {invoiceData.items.map((item, i) => (
-                                    <tr key={i} className="group hover:bg-slate-50">
-                                        <td className="py-4 px-4 text-sm text-slate-700 font-medium">{item.description || 'Item description'}</td>
-                                        <td className="py-4 px-4 text-sm text-center text-slate-600">{item.quantity}</td>
-                                        <td className="py-4 px-4 text-sm text-right text-slate-600">₹{item.price.toFixed(2)}</td>
-                                        <td className="py-4 px-4 text-sm text-right font-bold text-slate-800">₹{item.total.toFixed(2)}</td>
-                                    </tr>
-                                ))}
-                                {invoiceData.items.length === 0 && (
-                                    <tr>
-                                        <td colSpan="4" className="py-12 text-center text-slate-400 italic bg-slate-50 rounded-lg mt-2">
-                                            No items added yet. Click "Add Item" to start.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-
-                        {/* TOTALS */}
-                        <div className="flex justify-end">
-                            <div className="w-80 bg-slate-50 rounded-lg p-6 space-y-3">
-                                <div className="flex justify-between text-sm items-center">
-                                    <span className="text-slate-500 font-medium">Subtotal</span>
-                                    <span className="font-semibold text-slate-800">₹{calculateSubtotal().toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm items-center">
-                                    <span className="text-slate-500 font-medium">Tax ({taxRate}%)</span>
-                                    <span className="text-slate-800">₹{tax.toFixed(2)}</span>
-                                </div>
-                                <div className="h-px bg-slate-200 my-2"></div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-base font-bold text-indigo-900">Grand Total</span>
-                                    <span className="text-xl font-bold text-indigo-900">₹{total.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* NOTES / FOOTER */}
-                        <div className="mt-16 pt-8 border-t border-slate-200">
-                            <h4 className="font-bold text-slate-800 text-sm mb-2">Terms & Notes</h4>
-                            <p className="text-sm text-slate-500 leading-relaxed italic">
-                                Thank you for your business! Payment is expected by the due date.
-                                Please include the invoice number on your check or bank transfer.
-                            </p>
+            {/* Template Name Modal */}
+            {showTemplateModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                        <h2 className="text-lg font-bold mb-4">Save as Template</h2>
+                        <input
+                            type="text"
+                            className="w-full p-2 border rounded mb-4"
+                            placeholder="Template Name (e.g., Monthly Services)"
+                            value={templateName}
+                            onChange={(e) => setTemplateName(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setShowTemplateModal(false)} className="px-4 py-2 text-slate-500">Cancel</button>
+                            <button onClick={handleSaveAsTemplate} className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* PREVIEW AREA (The Paper Invoice) */}
+            <div className="flex-1 bg-slate-100 rounded-xl p-8 overflow-y-auto flex flex-col items-center print:bg-white print:p-0 print:block">
+
+                <InvoiceRenderer
+                    layout={activeLayout}
+                    invoiceData={invoiceData}
+                    companyConfig={companyConfig}
+                    taxRate={taxRate}
+                    calculateSubtotal={calculateSubtotal}
+                    tax={tax}
+                    total={total}
+                />
 
                 <div className="mt-6 flex gap-4 print:hidden">
                     <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 shadow-xl shadow-slate-200 hover:shadow-2xl transition-all transform hover:-translate-y-0.5">
