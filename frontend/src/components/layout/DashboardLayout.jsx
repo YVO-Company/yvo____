@@ -191,6 +191,14 @@ export default function DashboardLayout() {
                     </div>
 
                     <SidebarItem
+                        icon={<Users size={20} />}
+                        label="Customers"
+                        href="/dashboard/customers"
+                        locked={!config?.modules?.invoicing}
+                        collapsed={isSidebarCollapsed}
+                    />
+
+                    <SidebarItem
                         icon={<BarChart3 size={20} />}
                         label="Finance"
                         href="/dashboard/finance"

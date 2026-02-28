@@ -11,6 +11,7 @@ router.use(checkSubscriptionStatus);
 
 router.get('/', customerController.getCustomers);
 router.get('/:id', customerController.getCustomerById);
+router.get('/:id/ledger', customerController.getCustomerLedger);
 router.post('/', customerController.createCustomer);
 router.patch('/:id', customerController.updateCustomer);
 router.delete('/:id', customerController.deleteCustomer);

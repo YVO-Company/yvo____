@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Save, Download, Trash2, Printer, Search, Lock, Unlock, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Save, Download, Trash2, Printer, Search, Lock, Unlock, ChevronUp, ChevronDown, Users } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
 import api from '../../services/api';
@@ -20,8 +20,11 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
     const [securityPassword, setSecurityPassword] = useState('');
     const [companyConfig, setCompanyConfig] = useState(null);
     const [templates, setTemplates] = useState([]);
+    const [customers, setCustomers] = useState([]);
     const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [templateName, setTemplateName] = useState('');
+    const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', taxId: '' });
 
     // Tax Rate State (Default 10%)
     const [taxRate, setTaxRate] = useState(10);
@@ -37,7 +40,6 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
         clientAddress: '',
         gstNumber: '',
         date: new Date().toISOString().slice(0, 10),
-        dueDate: '',
         items: [],
         status: 'DRAFT',
         taxRate: 10, // Store tax rate in invoice data too if possible, but localized state for now
@@ -48,8 +50,19 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
         fetchInventory();
         fetchConfig();
         fetchTemplates();
+        fetchCustomers();
         if (id) fetchInvoice(id);
     }, [id]);
+
+    const fetchCustomers = async () => {
+        try {
+            const companyId = localStorage.getItem('companyId');
+            const res = await api.get('/customers', { params: { companyId } });
+            setCustomers(res.data);
+        } catch (e) {
+            console.error("Failed to fetch customers");
+        }
+    };
 
     // Handle templateId from URL to auto-load template
     useEffect(() => {
@@ -238,6 +251,31 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
         setNewAttributeValue('');
     };
 
+    const handleQuickCreateCustomer = async () => {
+        if (!newCustomer.name || !newCustomer.phone) {
+            alert("Error", "Name and Phone are required to create a customer.", "error");
+            return;
+        }
+        try {
+            const companyId = localStorage.getItem('companyId');
+            const res = await api.post('/customers', { companyId, ...newCustomer });
+            const created = res.data;
+            setCustomers([...customers, created]);
+            setInvoiceData({
+                ...invoiceData,
+                customerId: created._id,
+                customerName: created.name,
+                clientAddress: created.address || '',
+                gstNumber: created.taxId || ''
+            });
+            setShowCustomerModal(false);
+            setNewCustomer({ name: '', phone: '', address: '', taxId: '' });
+            alert("Success", "Customer created successfully and applied to invoice!", "success");
+        } catch (err) {
+            alert("Error", err.response?.data?.message || err.message, "error");
+        }
+    };
+
     const handleSave = async (status = 'DRAFT') => {
         try {
             const companyId = localStorage.getItem('companyId');
@@ -360,35 +398,77 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                         {isBlockPresent(['CUSTOMER_DETAILS', 'BILL_TO_BLOCK', 'BILL_TO_LABEL']) && (
                             <>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Customer Name</label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-2 border rounded"
-                                        value={invoiceData.customerName}
-                                        onChange={e => setInvoiceData({ ...invoiceData, customerName: e.target.value })}
+                                    <label className="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                        Customer
+                                        {isEditing && (
+                                            <button
+                                                onClick={() => setShowCustomerModal(true)}
+                                                className="text-xs text-indigo-600 font-bold hover:underline"
+                                                type="button"
+                                            >
+                                                + New Customer
+                                            </button>
+                                        )}
+                                    </label>
+                                    <select
+                                        className="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 bg-white"
+                                        value={invoiceData.customerId || ''}
+                                        onChange={e => {
+                                            const cust = customers.find(c => c._id === e.target.value);
+                                            if (cust) {
+                                                setInvoiceData({
+                                                    ...invoiceData,
+                                                    customerId: cust._id,
+                                                    customerName: cust.name,
+                                                    clientAddress: cust.address || '',
+                                                    gstNumber: cust.taxId || ''
+                                                });
+                                            } else {
+                                                setInvoiceData({ ...invoiceData, customerId: '', customerName: '' });
+                                            }
+                                        }}
                                         disabled={!isEditing}
-                                    />
+                                    >
+                                        <option value="">Select a customer...</option>
+                                        {customers.map(c => (
+                                            <option key={c._id} value={c._id}>{c.name} {c.phone ? `(${c.phone})` : ''}</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Client Address</label>
-                                    <textarea
-                                        className="w-full p-2 border rounded"
-                                        value={invoiceData.clientAddress}
-                                        onChange={e => setInvoiceData({ ...invoiceData, clientAddress: e.target.value })}
-                                        disabled={!isEditing}
-                                        rows={2}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">GST / Tax ID</label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-2 border rounded"
-                                        value={invoiceData.gstNumber}
-                                        onChange={e => setInvoiceData({ ...invoiceData, gstNumber: e.target.value })}
-                                        disabled={!isEditing}
-                                    />
-                                </div>
+                                {invoiceData.customerId && (
+                                    <div className="space-y-4 mt-4 bg-slate-50 p-4 rounded border border-slate-200">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Label (Name)</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-2 border bg-white rounded"
+                                                value={invoiceData.customerName}
+                                                onChange={e => setInvoiceData({ ...invoiceData, customerName: e.target.value })}
+                                                disabled={!isEditing}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Client Address</label>
+                                            <textarea
+                                                className="w-full p-2 border bg-white rounded"
+                                                value={invoiceData.clientAddress}
+                                                onChange={e => setInvoiceData({ ...invoiceData, clientAddress: e.target.value })}
+                                                disabled={!isEditing}
+                                                rows={2}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">GST / Tax ID</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-2 border bg-white rounded"
+                                                value={invoiceData.gstNumber}
+                                                onChange={e => setInvoiceData({ ...invoiceData, gstNumber: e.target.value })}
+                                                disabled={!isEditing}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
 
@@ -414,25 +494,14 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                                <input
-                                    type="date"
-                                    className="w-full p-2 border rounded"
-                                    value={invoiceData.date}
-                                    onChange={e => setInvoiceData({ ...invoiceData, date: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
-                                <input
-                                    type="date"
-                                    className="w-full p-2 border rounded"
-                                    value={invoiceData.dueDate}
-                                    onChange={e => setInvoiceData({ ...invoiceData, dueDate: e.target.value })}
-                                />
-                            </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                            <input
+                                type="date"
+                                className="w-full p-2 border rounded"
+                                value={invoiceData.date}
+                                onChange={e => setInvoiceData({ ...invoiceData, date: e.target.value })}
+                            />
                         </div>
 
                         {isBlockPresent('CUSTOM_ATTRIBUTES') && (
@@ -569,8 +638,8 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                         <button onClick={() => handleSave('DRAFT')} className="w-full flex justify-center items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg font-medium hover:bg-slate-50">
                             <Save size={18} /> Save as Draft
                         </button>
-                        <button onClick={() => handleSave('PAID')} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 shadow-sm">
-                            <Save size={18} /> Save & Record Sale
+                        <button onClick={() => handleSave('ISSUED')} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 shadow-sm">
+                            <Save size={18} /> Issue Invoice
                         </button>
                     </div>
                 </div>
@@ -591,6 +660,52 @@ export default function InvoiceBuilder({ invoiceId: propId, onClose }) {
                         <div className="flex justify-end gap-2">
                             <button onClick={() => setShowTemplateModal(false)} className="px-4 py-2 text-slate-500">Cancel</button>
                             <button onClick={handleSaveAsTemplate} className="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Quick Create Customer Modal */}
+            {showCustomerModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+                        <h2 className="text-lg font-bold mb-4 bg-slate-50 text-slate-800 p-2 rounded border border-slate-100 flex items-center gap-2">
+                            <Users size={18} className="text-indigo-600" />
+                            Quick Add Customer
+                        </h2>
+                        <input
+                            type="text"
+                            required
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 mb-3"
+                            placeholder="Customer Name *"
+                            value={newCustomer.name}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                        />
+                        <input
+                            type="tel"
+                            required
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 mb-3"
+                            placeholder="Phone Number *"
+                            value={newCustomer.phone}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                        />
+                        <textarea
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 mb-3"
+                            placeholder="Client Address"
+                            rows={2}
+                            value={newCustomer.address}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 mb-4"
+                            placeholder="GST / Tax ID"
+                            value={newCustomer.taxId}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, taxId: e.target.value })}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setShowCustomerModal(false)} className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                            <button onClick={handleQuickCreateCustomer} className="px-4 py-2 font-bold bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow-sm transition">Save & Select</button>
                         </div>
                     </div>
                 </div>

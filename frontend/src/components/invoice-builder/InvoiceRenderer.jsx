@@ -78,15 +78,9 @@ export const renderBlock = (block, data, options = {}) => {
                         <span className="font-bold uppercase opacity-80 text-[0.8em]">Date</span>
                         <span>{invoiceData.date}</span>
                     </div>
-                    {invoiceData.dueDate && (
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="font-bold uppercase opacity-80 text-[0.8em]">Due Date</span>
-                            <span>{invoiceData.dueDate}</span>
-                        </div>
-                    )}
                     <div className="flex justify-between items-center">
                         <span className="font-bold uppercase opacity-80 text-[0.8em]">Status</span>
-                        <span className={`px-2 py-0.5 rounded text-[0.85em] font-bold ${invoiceData.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        <span className={`px-2 py-0.5 rounded text-[0.85em] font-bold \${invoiceData.status === 'ISSUED' ? 'bg-indigo-100 text-indigo-700' : invoiceData.status === 'DRAFT' ? 'bg-slate-100 text-slate-700' : 'bg-red-100 text-red-700'}`}>
                             {invoiceData.status}
                         </span>
                     </div>

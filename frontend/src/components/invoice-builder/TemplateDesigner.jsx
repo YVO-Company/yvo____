@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Rnd } from 'react-rnd';
-import { X, Type, Image, Hash, DollarSign, FileText, Settings, AlignLeft, Grid, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Type, Image, Hash, DollarSign, FileText, Settings, AlignLeft, Grid, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import { renderBlock } from './InvoiceRenderer';
 
 const mmToPx = 3.7795275591; // 1mm = ~3.78px for screen resolution matching A4

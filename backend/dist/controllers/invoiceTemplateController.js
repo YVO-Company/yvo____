@@ -47,13 +47,24 @@ export const getTemplateById = async (req, res) => {
 export const createTemplate = async (req, res) => {
     try {
         const { companyId, name, type, themeIdentifier, items, taxRate, notes, layout } = req.body;
+        // Cleanse items
+        const cleansedItems = (items || []).map((item) => {
+            const newItem = { ...item };
+            if (newItem.inventoryId === "" || newItem.inventoryId === null) {
+                delete newItem.inventoryId;
+            }
+            newItem.quantity = parseFloat(item.quantity) || 0;
+            newItem.price = parseFloat(item.price) || 0;
+            newItem.total = parseFloat(item.total) || 0;
+            return newItem;
+        });
         const template = new InvoiceTemplate({
             companyId,
             name,
             type: type || 'COMPANY',
             themeIdentifier: themeIdentifier || 'classic',
-            items: items || [],
-            taxRate: taxRate !== undefined ? taxRate : 10,
+            items: cleansedItems,
+            taxRate: parseFloat(taxRate) !== undefined ? parseFloat(taxRate) : 10,
             notes: notes || '',
             layout: layout || []
         });
@@ -72,7 +83,24 @@ export const createTemplate = async (req, res) => {
 };
 export const updateTemplate = async (req, res) => {
     try {
-        const template = await InvoiceTemplate.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const id = req.params.id;
+        const updates = { ...req.body };
+        if (updates.items) {
+            updates.items = updates.items.map((item) => {
+                const newItem = { ...item };
+                if (newItem.inventoryId === "" || newItem.inventoryId === null) {
+                    delete newItem.inventoryId;
+                }
+                newItem.quantity = parseFloat(item.quantity) || 0;
+                newItem.price = parseFloat(item.price) || 0;
+                newItem.total = parseFloat(item.total) || 0;
+                return newItem;
+            });
+        }
+        if (updates.taxRate !== undefined) {
+            updates.taxRate = parseFloat(updates.taxRate) || 0;
+        }
+        const template = await InvoiceTemplate.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
         if (!template) {
             return res.status(404).json({ message: "Template not found" });
         }

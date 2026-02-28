@@ -43,8 +43,8 @@ export const createInvoice = async (req: Request, res: Response) => {
     try {
         const { companyId, invoiceNumber, customerId, customerName, clientAddress, gstNumber, date, dueDate, items, status, templateId, layout, taxRate: providedTaxRate } = req.body;
 
-        if (!companyId || !invoiceNumber) {
-            return res.status(400).json({ message: 'Company ID and Invoice Number are required' });
+        if (!companyId || !invoiceNumber || !customerId) {
+            return res.status(400).json({ message: 'Company ID, Customer ID, and Invoice Number are required' });
         }
 
         // Use tax rate from request or default to 10
@@ -87,8 +87,8 @@ export const createInvoice = async (req: Request, res: Response) => {
             companyId,
             invoiceNumber,
             customerId,
-            customerName,
-            clientAddress,
+            customerName, // snapshot
+            clientAddress, // snapshot
             gstNumber,
             date,
             dueDate,

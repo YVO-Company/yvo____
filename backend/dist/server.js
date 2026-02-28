@@ -16,6 +16,8 @@ import calendarRoutes from './routes/calendarRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import modulePaymentRoutes from './routes/modulePaymentRoutes.js';
+import financeRoutes from './routes/financeRoutes.js';
 import employeeAuthRoutes from './routes/employeeAuthRoutes.js';
 import employeeDashboardRoutes from './routes/employeeDashboardRoutes.js';
 import backupRoutes from './routes/backupRoutes.js';
@@ -47,6 +49,8 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/client-payments', modulePaymentRoutes);
+app.use('/api/finance', financeRoutes);
 app.use('/api/backups', backupRoutes);
 app.use('/api/invoice-templates', invoiceTemplateRoutes);
 app.get('/', (req, res) => {

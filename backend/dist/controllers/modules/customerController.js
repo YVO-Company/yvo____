@@ -1,4 +1,5 @@
 import { Customer } from '../../models/Modules/Customer.js';
+import mongoose from 'mongoose';
 // Get all customers for a company
 export const getCustomers = async (req, res) => {
     try {
@@ -6,7 +7,51 @@ export const getCustomers = async (req, res) => {
         if (!companyId) {
             return res.status(400).json({ message: 'Company ID is required' });
         }
-        const customers = await Customer.find({ companyId, isDeleted: false });
+        const companyObjectId = new mongoose.Types.ObjectId(companyId);
+        const customers = await Customer.aggregate([
+            { $match: { companyId: companyObjectId, isDeleted: false } },
+            // Lookup Invoices
+            {
+                $lookup: {
+                    from: 'invoices',
+                    let: { customerId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$customerId', '$$customerId'] }, isDeleted: false, status: { $nin: ['DRAFT', 'CANCELLED'] } } }
+                    ],
+                    as: 'invoices'
+                }
+            },
+            // Lookup Payments
+            {
+                $lookup: {
+                    from: 'modulepayments', // The collection name for Payment model
+                    let: { customerId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$customerId', '$$customerId'] }, isDeleted: false } }
+                    ],
+                    as: 'payments'
+                }
+            },
+            // Add fields
+            {
+                $addFields: {
+                    totalInvoiced: { $sum: '$invoices.grandTotal' },
+                    totalReceived: { $sum: '$payments.amount' }
+                }
+            },
+            {
+                $addFields: {
+                    totalDue: { $subtract: ['$totalInvoiced', '$totalReceived'] }
+                }
+            },
+            {
+                $project: {
+                    invoices: 0,
+                    payments: 0
+                }
+            },
+            { $sort: { lastModifiedAt: -1 } }
+        ]);
         res.status(200).json(customers);
     }
     catch (error) {
@@ -22,6 +67,70 @@ export const getCustomerById = async (req, res) => {
             return res.status(404).json({ message: 'Customer not found' });
         }
         res.status(200).json(customer);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// Get single customer ledger (customer + invoices + payments + totals)
+export const getCustomerLedger = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const customerObjectId = new mongoose.Types.ObjectId(id);
+        const result = await Customer.aggregate([
+            { $match: { _id: customerObjectId, isDeleted: false } },
+            {
+                $lookup: {
+                    from: 'invoices',
+                    let: { customerId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$customerId', '$$customerId'] }, isDeleted: false } },
+                        { $sort: { date: -1 } }
+                    ],
+                    as: 'invoices'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'modulepayments',
+                    let: { customerId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$customerId', '$$customerId'] }, isDeleted: false } },
+                        { $sort: { date: -1 } }
+                    ],
+                    as: 'payments'
+                }
+            },
+            {
+                $addFields: {
+                    totalInvoiced: {
+                        $sum: {
+                            $map: {
+                                input: {
+                                    $filter: {
+                                        input: '$invoices',
+                                        as: 'invoice',
+                                        cond: { $not: { $in: ['$$invoice.status', ['DRAFT', 'CANCELLED']] } }
+                                    }
+                                },
+                                as: 'filteredInvoice',
+                                in: '$$filteredInvoice.grandTotal'
+                            }
+                        }
+                    },
+                    totalReceived: { $sum: '$payments.amount' }
+                }
+            },
+            {
+                $addFields: {
+                    totalDue: { $subtract: ['$totalInvoiced', '$totalReceived'] }
+                }
+            }
+        ]);
+        if (!result || result.length === 0) {
+            return res.status(404).json({ message: 'Customer not found' });
+        }
+        res.status(200).json(result[0]);
     }
     catch (error) {
         res.status(500).json({ message: error.message });

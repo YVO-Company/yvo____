@@ -35,8 +35,8 @@ export const getInvoiceById = async (req, res) => {
 export const createInvoice = async (req, res) => {
     try {
         const { companyId, invoiceNumber, customerId, customerName, clientAddress, gstNumber, date, dueDate, items, status, templateId, layout, taxRate: providedTaxRate } = req.body;
-        if (!companyId || !invoiceNumber) {
-            return res.status(400).json({ message: 'Company ID and Invoice Number are required' });
+        if (!companyId || !invoiceNumber || !customerId) {
+            return res.status(400).json({ message: 'Company ID, Customer ID, and Invoice Number are required' });
         }
         // Use tax rate from request or default to 10
         const taxRate = providedTaxRate !== undefined ? providedTaxRate : 10;
@@ -50,6 +50,10 @@ export const createInvoice = async (req, res) => {
             if (newItem.inventoryId === "" || newItem.inventoryId === null) {
                 delete newItem.inventoryId;
             }
+            // Ensure numeric fields are actually numbers, default to 0
+            newItem.quantity = parseFloat(item.quantity) || 0;
+            newItem.price = parseFloat(item.price) || 0;
+            newItem.total = parseFloat(item.total) || 0;
             return newItem;
         });
         if (status !== 'DRAFT') { // Only deduct if actual sale
@@ -70,8 +74,8 @@ export const createInvoice = async (req, res) => {
             companyId,
             invoiceNumber,
             customerId,
-            customerName,
-            clientAddress,
+            customerName, // snapshot
+            clientAddress, // snapshot
             gstNumber,
             date,
             dueDate,
@@ -90,7 +94,8 @@ export const createInvoice = async (req, res) => {
     catch (error) {
         console.error("CRITICAL ERROR IN CREATE INVOICE:", error);
         if (error.name === 'ValidationError') {
-            return res.status(400).json({ message: "Validation error", errors: error.errors });
+            const details = Object.keys(error.errors).map(k => `${k}: ${error.errors[k].message}`).join(', ');
+            return res.status(400).json({ message: `Validation error: ${details}`, errors: error.errors });
         }
         res.status(500).json({ message: error.message || "Server Error" });
     }
@@ -109,6 +114,9 @@ export const updateInvoice = async (req, res) => {
                 if (newItem.inventoryId === "" || newItem.inventoryId === null) {
                     delete newItem.inventoryId;
                 }
+                newItem.quantity = parseFloat(item.quantity) || 0;
+                newItem.price = parseFloat(item.price) || 0;
+                newItem.total = parseFloat(item.total) || 0;
                 return newItem;
             });
             const subtotal = cleansedItems.reduce((sum, item) => sum + (item.total || 0), 0);
@@ -127,6 +135,10 @@ export const updateInvoice = async (req, res) => {
     }
     catch (error) {
         console.error("CRITICAL ERROR IN UPDATE INVOICE:", error);
+        if (error.name === 'ValidationError') {
+            const details = Object.keys(error.errors).map(k => `${k}: ${error.errors[k].message}`).join(', ');
+            return res.status(400).json({ message: `Validation error: ${details}` });
+        }
         res.status(500).json({ message: error.message || "Server Error" });
     }
 };

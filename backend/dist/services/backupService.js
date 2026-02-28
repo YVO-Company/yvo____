@@ -136,11 +136,11 @@ export const generateBackup = async (jobId) => {
             backupId: job.backupId,
             companyId: company._id,
             companyName: company.name,
-            createdAt: job.createdAt,
+            createdAt: job.createdAt || new Date(),
             createdBy: job.createdBy,
-            includedModules: job.filters.modules,
-            includesFiles: job.filters.includeFiles,
-            piiIncluded: job.filters.includePII,
+            includedModules: job.filters?.modules,
+            includesFiles: job.filters?.includeFiles,
+            piiIncluded: job.filters?.includePII,
             schemaVersion: '1.0.0'
         };
         const readmeContent = `YVO Data Export - README
@@ -154,13 +154,13 @@ NOTES ON YOUR DATA:
 - NAMES: We have automatically replaced technical IDs (like '698da...') with actual Names (e.g., Company Name, Employee Name) wherever possible.
 - INVOICES: Item details are combined into a single easy-to-read column.
 
-This backup is valid for 7 days from the creation date.
-Generated on: ${new Date(job.createdAt).toLocaleString()}
-`;
+        This backup is valid for 7 days from the creation date.
+        Generated on: ${new Date(job.createdAt || Date.now()).toLocaleString()}
+        `;
         archive.append(readmeContent, { name: 'README.txt' });
         archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest/manifest.json' });
         // 2. Export Data
-        const modulesToExport = job.filters.modules && job.filters.modules.length > 0
+        const modulesToExport = job.filters?.modules && job.filters.modules.length > 0
             ? job.filters.modules
             : Object.keys(MODULE_MODELS);
         let processedModules = 0;
@@ -176,7 +176,7 @@ Generated on: ${new Date(job.createdAt).toLocaleString()}
             const companyField = Model.schema.paths.companyId ? 'companyId' : 'company';
             let query = { [companyField]: company._id };
             // Apply Date Filters
-            if (job.filters.dateRange?.start || job.filters.dateRange?.end) {
+            if (job.filters?.dateRange?.start || job.filters?.dateRange?.end) {
                 const dateField = getDateFieldForModule(moduleName);
                 query[dateField] = {};
                 if (job.filters.dateRange.start)
@@ -208,7 +208,7 @@ Generated on: ${new Date(job.createdAt).toLocaleString()}
                 // Remove sensitive fields
                 SENSITIVE_FIELDS.forEach(f => delete data[f]);
                 // Mask PII if not included
-                if (!job.filters.includePII) {
+                if (!job.filters?.includePII) {
                     PII_FIELDS.forEach(f => {
                         if (data[f])
                             data[f] = maskPII(data[f], f);
@@ -243,7 +243,7 @@ Generated on: ${new Date(job.createdAt).toLocaleString()}
             processedModules++;
         }
         // 3. Add Files
-        if (job.filters.includeFiles) {
+        if (job.filters?.includeFiles) {
             const filesIndex = [];
             archive.append(JSON.stringify(filesIndex, null, 2), { name: 'files/files_index.json' });
         }

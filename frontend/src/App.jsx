@@ -22,6 +22,8 @@ const Plans = React.lazy(() => import('./pages/super-admin/Plans'));
 const ManageClients = React.lazy(() => import('./pages/super-admin/ManageClients'));
 const SyncControl = React.lazy(() => import('./pages/super-admin/SyncControl'));
 const InvoiceThemes = React.lazy(() => import('./pages/super-admin/InvoiceThemes'));
+const Customers = React.lazy(() => import('./pages/modules/Customers'));
+const CustomerProfile = React.lazy(() => import('./components/customers/CustomerProfile'));
 const Finance = React.lazy(() => import('./pages/modules/Finance'));
 const Invoicing = React.lazy(() => import('./pages/modules/Invoicing'));
 const Inventory = React.lazy(() => import('./pages/modules/Inventory'));
@@ -88,6 +90,8 @@ export default function App() {
           }>
             <Route index element={<DashboardHome />} />
             {/* Dashboard Sub-routes */}
+            <Route path="customers" element={<Customers />} />
+            <Route path="customers/:id" element={<CustomerProfile />} />
             <Route path="finance" element={<Finance />} />
             <Route path="invoicing" element={<Invoicing />} />
             <Route path="inventory" element={<Inventory />} />

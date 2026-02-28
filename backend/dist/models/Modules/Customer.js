@@ -9,4 +9,6 @@ const customerSchema = new Schema({
     lastModifiedAt: { type: Date, default: Date.now },
     isDeleted: { type: Boolean, default: false }
 });
+// Ensure phone is unique per company (if provided)
+customerSchema.index({ companyId: 1, phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: "string" } } });
 export const Customer = mongoose.model('Customer', customerSchema);

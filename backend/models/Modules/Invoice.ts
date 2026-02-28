@@ -12,17 +12,16 @@ export interface IInvoiceItem {
 export interface IInvoice extends Document {
     companyId: mongoose.Types.ObjectId;
     invoiceNumber: string;
-    customerId?: mongoose.Types.ObjectId;
+    customerId: mongoose.Types.ObjectId;
     customerName?: string;
     clientAddress?: string;
     gstNumber?: string;
     date: Date;
-    dueDate?: Date;
     items: IInvoiceItem[];
     subtotal?: number;
     taxTotal?: number;
     grandTotal?: number;
-    status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+    status: 'DRAFT' | 'ISSUED' | 'CANCELLED';
     lastModifiedAt: Date;
     isDeleted: boolean;
     templateId?: mongoose.Types.ObjectId;
@@ -34,12 +33,11 @@ export interface IInvoice extends Document {
 const invoiceSchema = new Schema<IInvoice>({
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
     invoiceNumber: { type: String, required: true },
-    customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+    customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
     customerName: { type: String },
     clientAddress: { type: String },
     gstNumber: { type: String },
     date: { type: Date, default: Date.now },
-    dueDate: { type: Date },
     items: [{
         type: new Schema({
             inventoryId: { type: Schema.Types.ObjectId, ref: 'InventoryItem' },
@@ -55,7 +53,7 @@ const invoiceSchema = new Schema<IInvoice>({
     taxRate: { type: Number, default: 10 },
     status: {
         type: String,
-        enum: ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED'],
+        enum: ['DRAFT', 'ISSUED', 'CANCELLED'],
         default: 'DRAFT'
     },
     lastModifiedAt: { type: Date, default: Date.now },

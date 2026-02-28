@@ -2,12 +2,11 @@ import mongoose, { Schema } from 'mongoose';
 const invoiceSchema = new Schema({
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
     invoiceNumber: { type: String, required: true },
-    customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+    customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
     customerName: { type: String },
     clientAddress: { type: String },
     gstNumber: { type: String },
     date: { type: Date, default: Date.now },
-    dueDate: { type: Date },
     items: [{
             type: new Schema({
                 inventoryId: { type: Schema.Types.ObjectId, ref: 'InventoryItem' },
@@ -23,7 +22,7 @@ const invoiceSchema = new Schema({
     taxRate: { type: Number, default: 10 },
     status: {
         type: String,
-        enum: ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED'],
+        enum: ['DRAFT', 'ISSUED', 'CANCELLED'],
         default: 'DRAFT'
     },
     lastModifiedAt: { type: Date, default: Date.now },
