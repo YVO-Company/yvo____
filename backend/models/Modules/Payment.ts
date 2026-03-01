@@ -20,4 +20,4 @@ const paymentSchema = new Schema<IPayment>({
     isDeleted: { type: Boolean, default: false }
 }, { timestamps: true });
 
-export const Payment: Model<IPayment> = mongoose.model<IPayment>('ModulePayment', paymentSchema);
+export const Payment: Model<IPayment> = mongoose.model<IPayment>('Payment', paymentSchema);

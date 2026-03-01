@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, User, Phone, MapPin, Mail, FileText, IndianRupee, History, Activity } from 'lucide-react';
-import GlobalModal from '../layout/GlobalModal';
+import { ArrowLeft, User, Phone, MapPin, Mail, FileText, IndianRupee, History, Activity, Download, Edit, Search, Calendar as CalendarIcon, CreditCard, ChevronDown, CheckCircle2 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
+import Modal from '../Modal';
+import InvoiceBuilder from '../../pages/modules/InvoiceBuilder';
 
 export default function CustomerProfile() {
     const { id } = useParams();
@@ -13,31 +15,76 @@ export default function CustomerProfile() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview'); // overview, invoices, payments, ledger
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [selectedPaymentId, setSelectedPaymentId] = useState(null);
     const [paymentData, setPaymentData] = useState({
         amount: '',
         date: new Date().toISOString().slice(0, 10),
         method: 'CASH'
     });
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
+    const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+    const [isSavingPayment, setIsSavingPayment] = useState(false);
 
     const handleReceivePayment = async (e) => {
         e.preventDefault();
+        if (isSavingPayment) return;
+
         try {
-            const companyId = localStorage.getItem('companyId');
-            if (!companyId) throw new Error('Company ID not found');
-            await api.post('/client-payments', {
-                companyId: companyId,
-                customerId: customer._id,
-                amount: parseFloat(paymentData.amount),
-                date: paymentData.date,
-                method: paymentData.method
-            });
-            toast.success('Payment recorded successfully');
+            setIsSavingPayment(true);
+            const companyId = customer.companyId || config?.company?.id || localStorage.getItem('companyId');
+
+            if (!companyId) {
+                toast.error('Company ID not found. Please try refreshing the page.');
+                return;
+            }
+
+            if (selectedPaymentId) {
+                await api.patch(`/client-payments/${selectedPaymentId}`, {
+                    companyId: companyId,
+                    customerId: customer._id,
+                    amount: parseFloat(paymentData.amount),
+                    date: paymentData.date,
+                    method: paymentData.method
+                });
+                toast.success('Payment updated successfully');
+            } else {
+                await api.post('/client-payments', {
+                    companyId: companyId,
+                    customerId: customer._id,
+                    amount: parseFloat(paymentData.amount),
+                    date: paymentData.date,
+                    method: paymentData.method
+                });
+                toast.success('Payment recorded successfully');
+            }
+
             setIsPaymentModalOpen(false);
             setPaymentData({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'CASH' });
+            setSelectedPaymentId(null);
             fetchCustomerLedger();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to record payment');
+            console.error('Payment Error:', error);
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to save payment';
+            toast.error(errorMsg);
+        } finally {
+            setIsSavingPayment(false);
         }
+    };
+
+    const openCreatePaymentModal = () => {
+        setSelectedPaymentId(null);
+        setPaymentData({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'CASH' });
+        setIsPaymentModalOpen(true);
+    };
+
+    const openEditPaymentModal = (payment) => {
+        setSelectedPaymentId(payment._id);
+        setPaymentData({
+            amount: payment.amount.toString(),
+            date: new Date(payment.date).toISOString().slice(0, 10),
+            method: payment.method || 'CASH'
+        });
+        setIsPaymentModalOpen(true);
     };
 
     const fetchCustomerLedger = async () => {
@@ -58,6 +105,116 @@ export default function CustomerProfile() {
             fetchCustomerLedger();
         }
     }, [id]);
+
+    const handleDownload = (e, invoice) => {
+        e.stopPropagation();
+        const element = document.createElement('div');
+        element.style.width = '210mm';
+        element.style.padding = '10mm';
+        element.style.background = 'white';
+        element.style.color = 'black';
+
+        const subtotal = invoice.items.reduce((s, i) => s + (i.total || 0), 0);
+        const taxRate = invoice.taxRate !== undefined ? invoice.taxRate : 10;
+        const tax = subtotal * (taxRate / 100);
+        const total = subtotal + tax;
+
+        const itemsRows = (invoice.items || []).map(item => `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 15px; color: #334155; font-size: 13px;">${item.description || 'Item'}</td>
+                <td style="padding: 12px 15px; text-align: center; color: #64748b; font-size: 13px;">${item.quantity}</td>
+                <td style="padding: 12px 15px; text-align: right; color: #64748b; font-size: 13px;">₹${item.price?.toFixed(2)}</td>
+                <td style="padding: 12px 15px; text-align: right; color: #0f172a; font-weight: 600; font-size: 13px;">₹${item.total?.toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        element.innerHTML = `
+            <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.5;">
+                <div style="height: 15px; background: #312e81; margin-bottom: 30px;"></div>
+                <div style="padding: 0 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 50px;">
+                        <div style="width: 50%;">
+                            ${config?.company?.logo ? `<img src="${config.company.logo}" style="height: 80px; margin-bottom: 15px; display: block;" />` : ''}
+                            <h2 style="margin: 0; color: #0f172a; font-size: 20px;">${config?.company?.name || 'YVO Company'}</h2>
+                            <p style="margin: 5px 0 0; font-size: 13px; color: #64748b;">
+                                ${config?.company?.address || '123 Business St'}<br/>
+                                ${config?.company?.email ? `${config.company.email}<br/>` : ''}
+                                ${config?.company?.phone ? `${config.company.phone}<br/>` : ''}
+                            </p>
+                        </div>
+                        <div style="width: 40%; text-align: right;">
+                            <h1 style="font-size: 42px; font-weight: 900; color: #e2e8f0; margin: 0; letter-spacing: -2px;">INVOICE</h1>
+                            <div style="margin-top: 10px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">Invoice #</span>
+                                    <span style="font-family: monospace; font-weight: bold; color: #334155;">${invoice.invoiceNumber}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">Date</span>
+                                    <span style="font-size: 13px; font-weight: 500;">${new Date(invoice.date).toLocaleDateString()}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">Status</span>
+                                    <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; background: #e2e8f0; border-radius: 4px;">${invoice.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 50px; padding: 20px 0; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9;">
+                        <div style="width: 45%;">
+                            <span style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Bill To</span>
+                            <h3 style="margin: 0 0 5px; font-size: 16px; color: #0f172a;">${invoice.customerName || customer.name}</h3>
+                            <p style="margin: 0; font-size: 13px; color: #64748b; white-space: pre-wrap;">${invoice.clientAddress || customer.address || 'Client Address'}</p>
+                        </div>
+                        <div style="width: 45%;">
+                            <span style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Terms</span>
+                            ${invoice.dueDate ? `
+                                <div style="margin-bottom: 5px;">
+                                    <span style="font-size: 13px; color: #64748b;">Due Date:</span>
+                                    <span style="font-weight: bold; color: #0f172a; margin-left: 5px;">${new Date(invoice.dueDate).toLocaleDateString()}</span>
+                                </div>
+                            ` : '<p style="font-size: 13px; color: #64748b;">Payment due on receipt</p>'}
+                        </div>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+                        <thead>
+                            <tr style="background: #1e293b; color: white;">
+                                <th style="padding: 12px 15px; text-align: left; font-size: 13px; font-weight: 600; border-radius: 6px 0 0 6px;">Description</th>
+                                <th style="padding: 12px 15px; text-align: center; font-size: 13px; font-weight: 600; width: 60px;">Qty</th>
+                                <th style="padding: 12px 15px; text-align: right; font-size: 13px; font-weight: 600; width: 100px;">Price</th>
+                                <th style="padding: 12px 15px; text-align: right; font-size: 13px; font-weight: 600; width: 100px; border-radius: 0 6px 6px 0;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>${itemsRows}</tbody>
+                    </table>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <div style="width: 300px; background: #f8fafc; padding: 20px; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                                <span style="color: #64748b; font-weight: 500;">Subtotal</span>
+                                <span style="color: #0f172a; font-weight: 600;">₹${subtotal.toFixed(2)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
+                                <span style="color: #64748b; font-weight: 500;">Tax (${taxRate}%)</span>
+                                <span style="color: #0f172a; font-weight: 600;">₹${tax.toFixed(2)}</span>
+                            </div>
+                            <div style="height: 1px; background: #e2e8f0; margin-bottom: 15px;"></div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: #312e81; font-weight: 700; font-size: 16px;">Total</span>
+                                <span style="color: #312e81; font-weight: 800; font-size: 20px;">₹${total.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        html2pdf().from(element).save(`${invoice.invoiceNumber}.pdf`);
+    };
+
+    const handleEdit = (e, invoiceId) => {
+        if (e) e.stopPropagation();
+        setSelectedInvoiceId(invoiceId);
+        setIsInvoiceModalOpen(true);
+    };
 
     if (loading) return <div className="p-8"><div className="animate-pulse">Loading profile...</div></div>;
     if (!customer) return <div className="p-8">Customer not found.</div>;
@@ -109,7 +266,7 @@ export default function CustomerProfile() {
                     <p className="text-sm text-slate-500 mt-1">Customer Profile & Financial Ledger</p>
                 </div>
                 <button
-                    onClick={() => setIsPaymentModalOpen(true)}
+                    onClick={openCreatePaymentModal}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium shadow-sm hover:bg-green-700 transition"
                 >
                     <IndianRupee size={16} />
@@ -161,7 +318,7 @@ export default function CustomerProfile() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors \${activeTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-lg'}`}
+                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-t-lg'}`}
                         >
                             {tab.icon}
                             {tab.label}
@@ -203,6 +360,7 @@ export default function CustomerProfile() {
                                         <th className="px-4 py-3">Invoice #</th>
                                         <th className="px-4 py-3">Status</th>
                                         <th className="px-4 py-3 text-right">Amount</th>
+                                        <th className="px-4 py-3 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -212,13 +370,23 @@ export default function CustomerProfile() {
                                         (customer.invoices || []).map(inv => (
                                             <tr key={inv._id} className="hover:bg-slate-50 transition">
                                                 <td className="px-4 py-3">{new Date(inv.date).toLocaleDateString()}</td>
-                                                <td className="px-4 py-3 font-medium text-indigo-600 cursor-pointer" onClick={() => navigate(`/dashboard/invoices/new?id=${inv._id}`)}>{inv.invoiceNumber}</td>
+                                                <td className="px-4 py-3 font-medium text-indigo-600 cursor-pointer" onClick={() => handleEdit(null, inv._id)}>{inv.invoiceNumber}</td>
                                                 <td className="px-4 py-3">
-                                                    <span className={`px-2 py-1 rounded text-xs font-bold \${inv.status === 'PAID' ? 'bg-green-100 text-green-700' : inv.status === 'DRAFT' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${inv.status === 'PAID' ? 'bg-green-100 text-green-700' : inv.status === 'DRAFT' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'}`}>
                                                         {inv.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-medium">₹{inv.grandTotal.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button onClick={(e) => handleDownload(e, inv)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition" title="Download">
+                                                            <Download size={16} />
+                                                        </button>
+                                                        <button onClick={(e) => handleEdit(e, inv._id)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition" title="Edit">
+                                                            <Edit size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))
                                     )}
@@ -235,17 +403,23 @@ export default function CustomerProfile() {
                                         <th className="px-4 py-3">Date</th>
                                         <th className="px-4 py-3">Method</th>
                                         <th className="px-4 py-3 text-right">Amount</th>
+                                        <th className="px-4 py-3 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {(customer.payments || []).length === 0 ? (
-                                        <tr><td colSpan="3" className="text-center py-4 text-slate-500">No payments found.</td></tr>
+                                        <tr><td colSpan="4" className="text-center py-4 text-slate-500">No payments found.</td></tr>
                                     ) : (
                                         (customer.payments || []).map(pay => (
                                             <tr key={pay._id} className="hover:bg-slate-50 transition">
                                                 <td className="px-4 py-3">{new Date(pay.date).toLocaleDateString()}</td>
                                                 <td className="px-4 py-3 text-slate-700 font-medium">{pay.method || 'CASH'}</td>
                                                 <td className="px-4 py-3 text-right font-medium text-green-600">₹{pay.amount.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button onClick={() => openEditPaymentModal(pay)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition inline-flex justify-center items-center" title="Edit Payment">
+                                                        <Edit size={16} />
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))
                                     )}
@@ -285,7 +459,7 @@ export default function CustomerProfile() {
                                                 <td className="px-4 py-3 text-right font-medium text-green-600">
                                                     {entry.type === 'PAYMENT' ? `₹${entry.amount.toLocaleString()}` : '-'}
                                                 </td>
-                                                <td className={`px-4 py-3 text-right font-bold \${entry.runningBalance > 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                                                <td className={`px-4 py-3 text-right font-bold ${entry.runningBalance > 0 ? 'text-red-600' : 'text-slate-700'}`}>
                                                     ₹{entry.runningBalance.toLocaleString()}
                                                 </td>
                                             </tr>
@@ -298,66 +472,121 @@ export default function CustomerProfile() {
                 </div>
             </div>
 
-            {/* Receive Payment Modal */}
-            <GlobalModal
+            {/* Receive / Edit Payment Modal */}
+            <Modal
                 isOpen={isPaymentModalOpen}
                 onClose={() => setIsPaymentModalOpen(false)}
-                title={`Receive Payment: \${customer.name}`}
-                maxWidth="sm"
+                title={selectedPaymentId ? `Edit Payment: ${customer.name}` : `Receive Payment: ${customer.name}`}
+                maxWidth="max-w-md"
             >
-                <form onSubmit={handleReceivePayment} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹) *</label>
-                        <input
-                            type="number"
-                            required
-                            min="1"
-                            step="0.01"
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                            value={paymentData.amount}
-                            onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
-                        />
+                <form onSubmit={handleReceivePayment} className="space-y-5 p-2">
+                    {/* Amount Input */}
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-semibold text-slate-700">Payment Amount <span className="text-red-500">*</span></label>
+                        <div className="relative relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
+                                <IndianRupee size={18} strokeWidth={2.5} />
+                            </div>
+                            <input
+                                type="number"
+                                required
+                                min="1"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                value={paymentData.amount}
+                                onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
-                        <input
-                            type="date"
-                            required
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                            value={paymentData.date}
-                            onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
-                        />
+
+                    {/* Date Input */}
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-semibold text-slate-700">Payment Date <span className="text-red-500">*</span></label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
+                                <CalendarIcon size={18} strokeWidth={2} />
+                            </div>
+                            <input
+                                type="date"
+                                required
+                                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm [color-scheme:light]"
+                                value={paymentData.date}
+                                onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-                        <select
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                            value={paymentData.method}
-                            onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
-                        >
-                            <option value="CASH">Cash</option>
-                            <option value="BANK_TRANSFER">Bank Transfer</option>
-                            <option value="UPI">UPI / Online</option>
-                            <option value="CHEQUE">Cheque</option>
-                        </select>
+
+                    {/* Payment Method */}
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-semibold text-slate-700">Payment Method</label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors z-10">
+                                <CreditCard size={18} strokeWidth={2} />
+                            </div>
+                            <select
+                                className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm appearance-none cursor-pointer"
+                                value={paymentData.method}
+                                onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
+                            >
+                                <option value="CASH">Cash Payment</option>
+                                <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
+                                <option value="UPI">UPI / Digital Wallet</option>
+                                <option value="CHEQUE">Cheque</option>
+                            </select>
+                            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                                <ChevronDown size={18} strokeWidth={2} />
+                            </div>
+                        </div>
                     </div>
-                    <div className="pt-4 flex justify-end gap-3 border-t">
+
+                    {/* Actions */}
+                    <div className="pt-6 mt-2 flex justify-end gap-3 border-t border-slate-100">
                         <button
                             type="button"
                             onClick={() => setIsPaymentModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+                            className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all active:scale-95"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg"
+                            disabled={isSavingPayment}
+                            className={`flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 ${isSavingPayment ? 'opacity-70 cursor-wait' : ''}`}
                         >
-                            Save Payment
+                            {isSavingPayment ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 size={18} strokeWidth={2.5} />
+                                    Confirm Payment
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>
-            </GlobalModal>
+            </Modal>
+
+            <Modal
+                isOpen={isInvoiceModalOpen}
+                onClose={() => setIsInvoiceModalOpen(false)}
+                title={selectedInvoiceId ? "Edit Invoice" : "Create Invoice"}
+                maxWidth="max-w-6xl"
+            >
+                <InvoiceBuilder
+                    invoiceId={selectedInvoiceId}
+                    onClose={() => {
+                        setIsInvoiceModalOpen(false);
+                        fetchCustomerLedger();
+                    }}
+                />
+            </Modal>
         </div>
     );
 }

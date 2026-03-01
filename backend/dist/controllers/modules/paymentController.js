@@ -16,15 +16,19 @@ export const getPayments = async (req, res) => {
 };
 export const createPayment = async (req, res) => {
     try {
+        console.log('[PaymentController] Creating payment:', req.body);
         const { companyId, customerId, amount, date, method, invoiceAllocation } = req.body;
         if (!companyId || !customerId || amount === undefined) {
+            console.warn('[PaymentController] Missing required fields:', { companyId, customerId, amount });
             return res.status(400).json({ message: 'Company, Customer, and Amount required' });
         }
         const newPayment = new Payment({ companyId, customerId, amount, date, method, invoiceAllocation });
         await newPayment.save();
+        console.log('[PaymentController] Payment saved successfully:', newPayment._id);
         res.status(201).json(newPayment);
     }
     catch (error) {
+        console.error('[PaymentController] Error creating payment:', error);
         res.status(500).json({ message: error.message });
     }
 };

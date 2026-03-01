@@ -8,4 +8,4 @@ const paymentSchema = new Schema({
     invoiceAllocation: [{ type: Schema.Types.ObjectId, ref: 'Invoice' }],
     isDeleted: { type: Boolean, default: false }
 }, { timestamps: true });
-export const Payment = mongoose.model('ModulePayment', paymentSchema);
+export const Payment = mongoose.model('Payment', paymentSchema);

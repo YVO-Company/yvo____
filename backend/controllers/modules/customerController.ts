@@ -29,7 +29,7 @@ export const getCustomers = async (req: Request, res: Response) => {
             // Lookup Payments
             {
                 $lookup: {
-                    from: 'modulepayments', // The collection name for Payment model
+                    from: 'payments', // The collection name for Payment model
                     let: { customerId: '$_id' },
                     pipeline: [
                         { $match: { $expr: { $eq: ['$customerId', '$$customerId'] }, isDeleted: false } }
@@ -101,7 +101,7 @@ export const getCustomerLedger = async (req: Request, res: Response) => {
             },
             {
                 $lookup: {
-                    from: 'modulepayments',
+                    from: 'payments',
                     let: { customerId: '$_id' },
                     pipeline: [
                         { $match: { $expr: { $eq: ['$customerId', '$$customerId'] }, isDeleted: false } },
